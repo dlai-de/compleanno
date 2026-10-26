@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sondaggio Compleanno 🎂</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* ponytail: token copiati da project-oida-fe/app/globals.css (è sorgente Tailwind, non caricabile senza build). Solo light, come OIDA. */
+  :root {
+    --ink: oklch(0.2316 0.0038 286.1);
+    --ink-secondary: oklch(0.5399 0.0077 286.14);
+    --surface-canvas: oklch(0.9854 0.0013 286.38);
+    --line-3: oklch(0.9112 0.0067 286.27);
+    --brand-50: oklch(0.9855 0.0069 258.34);
+    --brand-100: oklch(0.9603 0.0179 258.35);
+    --brand-200: oklch(0.9223 0.0313 257.51);
+    --brand-500: oklch(0.5772 0.1786 261.1);
+  }
+  body { margin: 0; padding: 16px; background: var(--surface-canvas); color: var(--ink); font: 16px/1.4 Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 640px; margin: 0 auto; }
+  /* ponytail: margini a occhio per allinearsi alle schede del Google Form (32px desktop, 18px mobile) */
+  .info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 32px 0; }
+  @media (max-width: 600px) { .info { grid-template-columns: 1fr; margin-inline: 18px; } }
+  .tile { display: flex; align-items: center; gap: 14px; padding: 16px; background: #fff; border: 1px solid var(--line-3); border-radius: 8px; color: inherit; text-decoration: none; }
+  a.tile:hover { background: var(--brand-50); border-color: var(--brand-200); }
+  .icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: var(--brand-100); font-size: 24px; }
+  .label { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-secondary); }
+  .tile strong { font-size: 18px; font-weight: 600; }
+  a.tile strong { color: var(--brand-500); }
+  iframe { display: block; width: 100%; height: 720px; border: 0; }
+</style>
+</head>
+<body>
+<main>
+  <section class="info">
+    <div class="tile"><span class="icon">📅</span><span><span class="label">Quando</span><strong>Sabato 21 novembre</strong></span></div>
+    <a class="tile" href="https://dimoraberchiatti.it/" target="_blank" rel="noopener"><span class="icon">📍</span><span><span class="label">Dove</span><strong>Dimora Berchiatti ↗</strong></span></a>
+  </section>
+  <!-- ponytail: Google Form incorporato, risposte e grafici nella scheda "Risposte" del modulo. -->
+  <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSfPYD_tIXfdWglcNInoQt9SHNDLh790lTsbJ_YN-s6cVlBaRQ/viewform?embedded=true" title="Sondaggio compleanno">Caricamento…</iframe>
+</main>
+</body>
+</html>
