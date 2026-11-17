@@ -196,19 +196,12 @@
     <section class="q field">
       <span class="kick hud">Round 1</span>
       <h2 id="h-nome">Come ti chiami?</h2>
-      <input class="big" name="nome" id="nome" autocomplete="name" enterkeyhint="next" placeholder="Nome" maxlength="40" required pattern=".*\S.*" aria-labelledby="h-nome">
+      <input class="big" name="nome" id="nome" autocomplete="name" enterkeyhint="done" placeholder="Nome" maxlength="40" required pattern=".*\S.*" aria-labelledby="h-nome">
       <span class="err">Ci serve il tuo nome per il tabellone</span>
     </section>
 
-    <section class="q">
-      <span class="kick hud">Round 2</span>
-      <h2 id="h-tag">Nome da combattente</h2>
-      <p class="sub">Facoltativo. Se lo scrivi, sul tabellone compare questo.</p>
-      <input class="big" name="tag" id="tag" autocomplete="nickname" enterkeyhint="done" placeholder="es. Sub-Zio" maxlength="20" aria-labelledby="h-tag">
-    </section>
-
     <section class="q field" role="radiogroup" aria-labelledby="h-livello">
-      <span class="kick hud">Round 3</span>
+      <span class="kick hud">Round 2</span>
       <h2 id="h-livello">Quanto sei forte?</h2>
       <p class="sub">Così i più forti non si incontrano al primo turno.</p>
       <div class="levels">
@@ -220,7 +213,7 @@
     </section>
 
     <section class="q" role="radiogroup" aria-labelledby="h-main">
-      <span class="kick hud">Round 4</span>
+      <span class="kick hud">Round 3</span>
       <h2 id="h-main">Con chi giochi?</h2>
       <p class="sub">Facoltativo. Tocca un personaggio per leggere la sua scheda.</p>
       <input type="search" class="search" id="cerca" placeholder="Cerca un personaggio" aria-label="Cerca un personaggio" autocomplete="off" enterkeyhint="search">
@@ -375,11 +368,10 @@
     $('.none').hidden = shown > 0;
   };
 
-  // Invio nei campi di testo non invia il modulo: passa al campo dopo o chiude la tastiera
-  form.nome.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); form.tag.focus(); } };
-  form.tag.onkeydown = cerca.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
+  // Invio nei campi di testo non invia il modulo: chiude la tastiera
+  form.nome.onkeydown = cerca.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
 
-  const current = () => { const d = Object.fromEntries(new FormData(form)); d.nome = d.nome.trim(); d.tag = d.tag.trim(); return d; };
+  const current = () => { const d = Object.fromEntries(new FormData(form)); d.nome = d.nome.trim(); return d; };
 
   // la stessa scheda (VS e conferma) si disegna da un oggetto risposte, una sola fonte
   let painted;
@@ -388,7 +380,7 @@
       const ini = c.querySelector('.f-ini');
       portrait(ini, d.main);
       if (painted !== undefined && painted !== d.main) pop(ini, { opacity: .3, transform: 'scale(.8)' });
-      c.querySelector('.f-name').textContent = d.tag || d.nome || 'Il tuo nome';
+      c.querySelector('.f-name').textContent = d.nome || 'Il tuo nome';
       c.querySelector('.f-meta').textContent = [d.livello, d.main].filter(Boolean).join(' · ') || 'Livello e personaggio';
     }
     painted = d.main;
@@ -430,7 +422,7 @@
     const d = current(), cta = form.querySelector('.cta'), oops = $('.oops');
     cta.disabled = true; cta.textContent = 'Invio…'; oops.hidden = true;
     let ok = false;
-    try { ok = (await sb('', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ nome: d.nome, tag: d.tag || null, livello: d.livello, main: d.main || null }) })).ok; } catch {}
+    try { ok = (await sb('', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ nome: d.nome, livello: d.livello, main: d.main || null }) })).ok; } catch {}
     cta.disabled = false; cta.textContent = 'Iscrivimi';
     if (!ok) { oops.hidden = false; return; }
     // il browser ricorda solo che da qui ti sei già iscritto, così al ritorno vedi la conferma
