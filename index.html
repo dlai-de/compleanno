@@ -2,44 +2,481 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sondaggio Compleanno 🎂</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0b0708">
+<title>Torneo di Mortal Kombat 11</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- ponytail: un solo font in due pesi, il testo corrente usa il font di sistema -->
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <style>
-  /* ponytail: token copiati da project-oida-fe/app/globals.css (è sorgente Tailwind, non caricabile senza build). Solo light, come OIDA. */
   :root {
-    --ink: oklch(0.2316 0.0038 286.1);
-    --ink-secondary: oklch(0.5399 0.0077 286.14);
-    --surface-canvas: oklch(0.9854 0.0013 286.38);
-    --line-3: oklch(0.9112 0.0067 286.27);
-    --brand-50: oklch(0.9855 0.0069 258.34);
-    --brand-100: oklch(0.9603 0.0179 258.35);
-    --brand-200: oklch(0.9223 0.0313 257.51);
-    --brand-500: oklch(0.5772 0.1786 261.1);
+    color-scheme: dark;
+    --bg: #0b0708;
+    --card: rgb(255 255 255 / .045);
+    --line: rgb(255 255 255 / .1);
+    --text: #f6efe7;
+    --muted: rgb(246 239 231 / .62);
+    --gold: #f0bd5a;
+    --red: #e5281b;
+    --hud: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+    --spring: cubic-bezier(.34, 1.56, .64, 1);
+    --r: 14px;
   }
-  body { margin: 0; padding: 16px; background: var(--surface-canvas); color: var(--ink); font: 16px/1.4 Geist, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-  main { max-width: 640px; margin: 0 auto; }
-  /* ponytail: margini a occhio per allinearsi alle schede del Google Form (32px desktop, 18px mobile) */
-  .info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 32px 0; }
-  @media (max-width: 600px) { .info { grid-template-columns: 1fr; margin-inline: 18px; } }
-  .tile { display: flex; align-items: center; gap: 14px; padding: 16px; background: #fff; border: 1px solid var(--line-3); border-radius: 8px; color: inherit; text-decoration: none; }
-  a.tile:hover { background: var(--brand-50); border-color: var(--brand-200); }
-  .icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: var(--brand-100); font-size: 24px; }
-  .label { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-secondary); }
-  .tile strong { font-size: 18px; font-weight: 600; }
-  a.tile strong { color: var(--brand-500); }
-  iframe { display: block; width: 100%; height: 720px; border: 0; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--bg); scroll-behavior: smooth; }
+  /* ponytail: niente background sul body, coprirebbe .glow e .embers (z-index negativo) */
+  body { margin: 0; color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+  .hud { font: 700 13px/1 var(--hud); letter-spacing: .12em; text-transform: uppercase; }
+
+  /* sfondo: due bagliori e qualche scintilla, solo transform/opacity così gira liscio anche sui telefoni vecchi */
+  .glow { position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background: radial-gradient(ellipse 120% 50% at 50% 110%, rgb(230 70 10 / .32), transparent 70%),
+                radial-gradient(ellipse 90% 40% at 50% -8%, rgb(200 20 10 / .28), transparent 70%); }
+  .embers { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .embers i { position: absolute; bottom: -12px; left: var(--l); width: var(--s); height: var(--s); border-radius: 50%; background: radial-gradient(#ffd27a, rgb(255 110 20 / .5) 45%, transparent 70%); opacity: 0; animation: ember var(--d) linear var(--dl) infinite; }
+  @keyframes ember { 10% { opacity: 1; } 75% { opacity: .6; } to { transform: translate(var(--x), -105vh); opacity: 0; } }
+
+  /* ponytail: clip e non hidden, così i pannelli sticky funzionano e le animazioni non allargano la pagina su mobile */
+  .app { max-width: 480px; margin: 0 auto; padding: 0 20px; overflow-x: clip; }
+
+  /* testata */
+  .hero { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: calc(28px + env(safe-area-inset-top)) 0 0; text-align: center; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 99px; background: var(--card); color: var(--muted); }
+  .pill i { width: 8px; height: 8px; border-radius: 50%; background: #ff3b1f; box-shadow: 0 0 8px #ff3b1f; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  h1 { margin: 6px 0 0; width: 100%; }
+  h1 img { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 24px rgb(255 90 20 / .35)); }
+  .eyebrow { margin: 0; color: var(--gold); }
+  .meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .meta > * { padding: 9px 14px; border: 1px solid var(--line); border-radius: 99px; background: var(--card); color: var(--text); font: 700 15px/1 var(--hud); letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
+  .meta a { color: var(--gold); }
+
+  /* domande */
+  .q { margin-top: 44px; }
+  .kick { color: #ff5b45; }
+  h2 { margin: 8px 0 6px; font: 800 32px/1.02 var(--hud); letter-spacing: .01em; text-transform: uppercase; outline: none; }
+  .sub { margin: 0; font-size: 15px; color: var(--muted); }
+  .err { display: none; margin-top: 10px; font: 700 15px/1.2 var(--hud); letter-spacing: .06em; text-transform: uppercase; color: #ff4a2a; }
+  .tried .field:has(:invalid) .err, .field:has(input:user-invalid) .err { display: block; }
+  .tried .field:has(:invalid) h2 { animation: shake .45s both; }
+  input.big, .search { display: block; width: 100%; border: 1px solid var(--line); background: var(--card); color: var(--text); outline: none; transition: border-color .2s, box-shadow .2s; }
+  input.big { height: 58px; margin-top: 14px; padding: 0 16px; border-radius: var(--r); font: 700 24px/1 var(--hud); letter-spacing: .04em; text-transform: uppercase; }
+  input.big:focus, .search:focus { border-color: var(--gold); box-shadow: 0 0 0 4px rgb(240 189 90 / .15); }
+  input.big:user-invalid, .tried input.big:invalid { border-color: var(--red); box-shadow: 0 0 0 4px rgb(229 40 27 / .15); }
+  input::placeholder { color: rgb(246 239 231 / .28); }
+
+  /* scelte: radio nascosti dentro card */
+  .opt { position: relative; cursor: pointer; -webkit-user-select: none; user-select: none; transition: transform .35s var(--spring), border-color .2s, background-color .2s, box-shadow .25s, outline-color .2s; }
+  .opt input { position: absolute; opacity: 0; pointer-events: none; }
+  .opt:has(input:focus-visible) { outline: 2px solid #fff; outline-offset: 3px; }
+  .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .lvl { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 6px 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--card); text-align: center; }
+  .lvl b { font: 800 18px/1 var(--hud); letter-spacing: .04em; text-transform: uppercase; }
+  .lvl small { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+  .lvl:has(:checked) { border-color: var(--gold); background: linear-gradient(180deg, rgb(229 40 27 / .32), rgb(229 40 27 / .06)); box-shadow: 0 10px 24px -12px rgb(229 40 27 / .9); }
+  .skulls { display: inline-flex; gap: 2px; vertical-align: middle; }
+  .skulls svg { width: 18px; height: 18px; fill: rgb(255 255 255 / .14); }
+  .skulls svg.on { fill: var(--gold); }
+  .opt:active { transform: scale(.95); }
+
+  /* selezione lottatore */
+  .search { height: 48px; margin-top: 16px; padding: 0 16px; border-radius: 12px; font: 700 18px var(--hud); letter-spacing: .04em; }
+  /* ponytail: altezza fissa, se cambiasse col testo la griglia salterebbe sotto il mouse */
+  .scheda { position: sticky; top: calc(8px + env(safe-area-inset-top)); z-index: 2; display: flex; align-items: center; gap: 14px; height: 120px; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(100deg, hsl(var(--h, 30) 50% 20%), #150d0c 62%); box-shadow: 0 14px 30px -14px #000; }
+  .scheda > div { min-width: 0; }
+  .scheda .f-ini { width: 72px; height: 96px; border-radius: 10px; }
+  .s-name { display: block; font: 800 22px/1 var(--hud); letter-spacing: .03em; text-transform: uppercase; }
+  .s-tags { display: flex; align-items: center; gap: 10px; margin: 6px 0 5px; overflow: hidden; white-space: nowrap; font: 700 12px/1 var(--hud); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+  .s-tags .skulls svg { width: 13px; height: 13px; }
+  .s-desc { display: -webkit-box; margin: 0; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 13.5px; line-height: 1.3; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+  .tile { isolation: isolate; display: flex; align-items: flex-end; justify-content: center; aspect-ratio: 3 / 4; padding: 0 2px 7px; overflow: hidden; border-radius: 10px; outline: 1px solid var(--line); outline-offset: -1px; background: radial-gradient(circle at 50% 35%, hsl(var(--h, 30) 45% 26%), #120a09 75%); text-align: center; }
+  .tile img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .tile::after { content: ""; position: absolute; inset: 45% 0 0; z-index: -1; background: linear-gradient(transparent, rgb(0 0 0 / .85)); }
+  .tile span { font: 700 12px/1.05 var(--hud); letter-spacing: .04em; text-transform: uppercase; text-shadow: 0 1px 2px #000; }
+  @media (hover: hover) { .tile:hover { transform: translateY(-3px); outline-color: rgb(255 255 255 / .55); } }
+  .tile:has(:checked) { z-index: 1; transform: scale(1.05); outline: 2px solid var(--gold); outline-offset: -2px; box-shadow: 0 8px 22px -6px rgb(255 120 20 / .75); }
+  .tile:has(:checked)::before { content: "P1"; position: absolute; top: 5px; left: 5px; padding: 3px 5px 2px; border-radius: 4px; background: var(--red); font: 800 11px/1 var(--hud); color: #fff; }
+  .mystery svg { position: absolute; top: 8px; left: 0; z-index: -2; width: 100%; height: calc(100% - 30px); color: #3a2c26; --eye: transparent; }
+  .q-mark { position: absolute; inset: 24% 0 auto; text-align: center; font: 800 34px/1 var(--hud); color: var(--gold); text-shadow: 0 2px 0 #000; }
+  .none { color: var(--muted); }
+
+  /* ritratto: ninja disegnato finché non c'è un personaggio, poi l'icona ufficiale */
+  .f-ini { position: relative; flex: none; width: 84px; height: 112px; overflow: hidden; border-radius: 12px; background: center top / cover no-repeat; }
+  .f-ini svg { width: 100%; height: 100%; color: hsl(var(--h, 40) 40% 32%); --eye: hsl(var(--h, 40) 100% 85%); }
+  .f-ini.pic svg, .f-ini.pic .q-mark { display: none; }
+
+  /* VS dal vivo */
+  .versus { position: relative; display: grid; grid-template-columns: 1fr 1fr; height: 236px; margin-top: 16px; overflow: hidden; border-radius: 18px; }
+  .side { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 0; padding: 14px 18px; text-align: center; }
+  .side.p1 { padding-right: 34px; background: linear-gradient(160deg, #b8170e, #3a0604); clip-path: polygon(0 0, 100% 0, calc(100% - 22px) 100%, 0 100%); }
+  .side.p2 { margin-left: -14px; padding-left: 34px; background: linear-gradient(200deg, #1f3f9e, #070b26); clip-path: polygon(22px 0, 100% 0, 100% 100%, 0 100%); }
+  .p2 .f-ini svg { color: #2a3766; --eye: #d6e4ff; }
+  .f-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 22px/1 var(--hud); letter-spacing: .04em; text-transform: uppercase; }
+  .f-meta { font-size: 13px; line-height: 1.25; color: rgb(255 255 255 / .75); }
+  .vs-mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-8deg); font: 800 50px/1 var(--hud); color: #fff; text-shadow: 0 3px 0 #000, 0 0 20px rgb(255 120 30 / .8); }
+
+  /* pulsanti */
+  .actions { position: sticky; bottom: 0; z-index: 3; display: grid; gap: 10px; margin-top: 28px; padding: 14px 0 calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 24px); }
+  .cta, .ghost { border-radius: var(--r); text-transform: uppercase; transition: transform .25s var(--spring), filter .2s; }
+  .cta { height: 58px; border: 0; background: linear-gradient(180deg, #f2442e, #b5140b); box-shadow: 0 10px 28px -10px rgb(229 40 27 / .9), inset 0 1px 0 rgb(255 255 255 / .25); font: 800 22px/1 var(--hud); letter-spacing: .1em; color: #fff; }
+  .ghost { height: 52px; border: 1px solid var(--line); background: var(--card); font: 700 17px/1 var(--hud); letter-spacing: .1em; color: var(--gold); }
+  .cta:hover { filter: brightness(1.1); }
+  .cta:active, .ghost:active { transform: scale(.97); }
+
+  /* conferma */
+  .done { display: flex; flex-direction: column; align-items: center; padding-top: 40px; text-align: center; }
+  .done .fighter { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px; border: 1px solid rgb(240 189 90 / .45); border-radius: 18px; background: linear-gradient(160deg, rgb(229 40 27 / .35), rgb(30 4 3 / .9)); text-align: left; }
+  .done .fighter > div { display: grid; gap: 6px; min-width: 0; }
+  .done .f-ini { width: 60px; height: 80px; border-radius: 10px; }
+  .stamp { position: absolute; top: -14px; right: 12px; padding: 6px 10px 4px; border: 2px solid #ff3b1f; border-radius: 6px; background: var(--bg); color: #ff3b1f; font: 800 15px/1 var(--hud); letter-spacing: .14em; text-transform: uppercase; transform: rotate(6deg); animation: slam .45s .25s var(--ease) both; }
+  @keyframes slam { from { opacity: 0; transform: rotate(6deg) scale(2.4); } }
+  .done h2 { margin-top: 30px; font-size: 52px; animation: shake .5s .1s both; }
+  .done .actions { position: static; align-self: stretch; background: none; }
+  @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translate(-6px, 2px); } 40% { transform: translate(5px, -3px); } 60% { transform: translate(-4px, 1px); } 80% { transform: translate(2px, -1px); } }
+  .flash { position: fixed; inset: 0; z-index: 6; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgb(255 220 150 / .85), rgb(209 26 16 / .55) 60%); animation: fade .55s ease-out forwards; }
+  @keyframes fade { to { opacity: 0; } }
+  .spark { position: fixed; z-index: 5; top: 42%; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #ffc061; box-shadow: 0 0 8px 2px rgb(255 100 20 / .8); pointer-events: none; animation: burst 1.1s var(--ease) forwards; }
+  @keyframes burst { to { transform: translate(var(--x), var(--y)); opacity: 0; } }
+
+  /* tabellone pubblico */
+  .iscritti { margin-bottom: 48px; }
+  .lista { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+  .lista li { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 12px 8px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .lista li > div { min-width: 0; }
+  .lista .f-ini { width: 36px; height: 48px; border-radius: 8px; }
+  .lista .q-mark { font-size: 20px; }
+  .lista strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 18px/1.1 var(--hud); letter-spacing: .03em; text-transform: uppercase; }
+  .lista small { font-size: 13px; color: var(--muted); }
+  .oops { margin: 0; text-align: center; font: 700 15px/1.2 var(--hud); letter-spacing: .06em; text-transform: uppercase; color: #ff4a2a; }
+  .cta:disabled { filter: saturate(.5) brightness(.8); cursor: progress; }
+
+  /* comparsa allo scroll: zero JS, solo dove il browser la supporta; usa translate per non litigare con transform */
+  @supports (animation-timeline: view()) {
+    .q > :not(.scheda, .grid), .tile { animation: rise auto linear both; animation-timeline: view(); animation-range: entry; }
+    @keyframes rise { from { opacity: 0; translate: 0 26px; } }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .embers { display: none; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <section class="info">
-    <div class="tile"><span class="icon">📅</span><span><span class="label">Quando</span><strong>Sabato 21 novembre</strong></span></div>
-    <a class="tile" href="https://dimoraberchiatti.it/" target="_blank" rel="noopener"><span class="icon">📍</span><span><span class="label">Dove</span><strong>Dimora Berchiatti ↗</strong></span></a>
+<div class="glow" aria-hidden="true"></div>
+<div class="embers" aria-hidden="true"></div>
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <symbol id="ninja" viewBox="0 0 100 120">
+    <path fill="currentColor" d="M2 120C4 101 16 91 33 87l5-6C28 75 23 63 24 48 25 26 36 12 50 12s25 14 26 36c1 15-4 27-14 33l5 6c17 4 29 14 31 33Z"/>
+    <path fill="#fff" opacity=".1" d="M50 12c-14 0-25 14-26 36-1 8 0 15 3 21-1-22 6-46 23-57Z"/>
+    <path fill="#000" opacity=".5" d="M33 44c6-5 28-5 34 0l-1 22c-4 8-28 8-32 0Z"/>
+    <path fill="currentColor" opacity=".85" d="M34 56c10 3 22 3 32 0v10c-4 8-28 8-32 0Z"/>
+    <path style="fill: var(--eye, #fff)" d="M37 48l11 2.5-1 3.5-10-3ZM63 48l-11 2.5 1 3.5 10-3Z"/>
+  </symbol>
+  <symbol id="skull" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.5 2 3 5.6 3 10.3c0 2.9 1.3 4.9 3 6.1V20a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3.6c1.7-1.2 3-3.2 3-6.1C21 5.6 17.5 2 12 2ZM8.5 9.5a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4ZM15.5 9.5a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4ZM12 14.6l-1.3 2.2h2.6ZM10 18h1v3h-1ZM13 18h1v3h-1Z"/></symbol>
+</svg>
+
+<main class="app">
+  <header class="hero">
+    <span class="pill hud"><i></i>Iscrizioni aperte · <span id="quando">sabato</span></span>
+    <h1><img src="img/logo.webp" width="800" height="193" alt="Mortal Kombat 11" fetchpriority="high"></h1>
+    <p class="eyebrow hud">Torneo del compleanno</p>
+    <div class="meta">
+      <a href="#iscritti" id="quanti" hidden></a>
+    </div>
+  </header>
+
+  <form id="iscrizione" novalidate>
+    <section class="q field">
+      <span class="kick hud">Round 1</span>
+      <h2 id="h-nome">Come ti chiami?</h2>
+      <input class="big" name="nome" id="nome" autocomplete="name" enterkeyhint="next" placeholder="Nome" maxlength="40" required pattern=".*\S.*" aria-labelledby="h-nome">
+      <span class="err">Ci serve il tuo nome per il tabellone</span>
+    </section>
+
+    <section class="q">
+      <span class="kick hud">Round 2</span>
+      <h2 id="h-tag">Nome da combattente</h2>
+      <p class="sub">Facoltativo. Se lo scrivi, sul tabellone compare questo.</p>
+      <input class="big" name="tag" id="tag" autocomplete="nickname" enterkeyhint="done" placeholder="es. Sub-Zio" maxlength="20" aria-labelledby="h-tag">
+    </section>
+
+    <section class="q field" role="radiogroup" aria-labelledby="h-livello">
+      <span class="kick hud">Round 3</span>
+      <h2 id="h-livello">Quanto sei forte?</h2>
+      <p class="sub">Così i più forti non si incontrano al primo turno.</p>
+      <div class="levels">
+        <label class="opt lvl"><input type="radio" name="livello" value="Principiante" required><i class="skulls"><svg class="on"><use href="#skull"/></svg><svg><use href="#skull"/></svg><svg><use href="#skull"/></svg></i><b>Principiante</b><small>Premo tasti a caso</small></label>
+        <label class="opt lvl"><input type="radio" name="livello" value="Me la cavo"><i class="skulls"><svg class="on"><use href="#skull"/></svg><svg class="on"><use href="#skull"/></svg><svg><use href="#skull"/></svg></i><b>Me la cavo</b><small>Qualche combo la so</small></label>
+        <label class="opt lvl"><input type="radio" name="livello" value="Esperto"><i class="skulls"><svg class="on"><use href="#skull"/></svg><svg class="on"><use href="#skull"/></svg><svg class="on"><use href="#skull"/></svg></i><b>Esperto</b><small>Ho un main e lo uso bene</small></label>
+      </div>
+      <span class="err">Scegline uno, anche a occhio</span>
+    </section>
+
+    <section class="q" role="radiogroup" aria-labelledby="h-main">
+      <span class="kick hud">Round 4</span>
+      <h2 id="h-main">Con chi giochi?</h2>
+      <p class="sub">Facoltativo. Tocca un personaggio per leggere la sua scheda.</p>
+      <input type="search" class="search" id="cerca" placeholder="Cerca un personaggio" aria-label="Cerca un personaggio" autocomplete="off" enterkeyhint="search">
+      <div class="scheda" id="scheda">
+        <span class="f-ini"><svg viewBox="0 0 100 120" aria-hidden="true"><use href="#ninja"/></svg><b class="q-mark" aria-hidden="true">?</b></span>
+        <div><strong class="s-name"></strong><p class="s-tags"><span class="s-stile"></span><span class="s-diff"></span></p><p class="s-desc"></p></div>
+      </div>
+      <div class="grid" id="grid">
+        <label class="opt tile mystery"><input type="radio" name="main" value="" checked><svg viewBox="0 0 100 120" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><use href="#ninja"/></svg><b class="q-mark" aria-hidden="true">?</b><span>A caso</span></label>
+      </div>
+      <p class="none" hidden>Nessun personaggio con questo nome.</p>
+    </section>
+
+    <section class="q">
+      <span class="kick hud">Riepilogo</span>
+      <h2>Il tuo primo incontro</h2>
+      <div class="versus">
+        <div class="side p1 fighter"><span class="f-ini"><svg viewBox="0 0 100 120" aria-hidden="true"><use href="#ninja"/></svg><b class="q-mark" aria-hidden="true">?</b></span><strong class="f-name"></strong><span class="f-meta"></span></div>
+        <div class="side p2"><span class="f-ini"><svg viewBox="0 0 100 120" aria-hidden="true"><use href="#ninja"/></svg><b class="q-mark" aria-hidden="true">?</b></span><strong class="f-name">???</strong></div>
+        <span class="vs-mark" aria-hidden="true">VS</span>
+      </div>
+    </section>
+
+    <div class="actions"><p class="oops" role="alert" hidden>Non è partita: controlla la connessione e riprova</p><button type="submit" class="cta">Iscrivimi</button></div>
+  </form>
+
+  <section class="done" hidden>
+    <div class="fighter"><span class="f-ini"><svg viewBox="0 0 100 120" aria-hidden="true"><use href="#ninja"/></svg><b class="q-mark" aria-hidden="true">?</b></span><div><strong class="f-name"></strong><span class="f-meta"></span></div><span class="stamp">Iscritto</span></div>
+    <h2 tabindex="-1">Sei dentro!</h2>
+    <p class="sub">Ci vediamo al torneo.</p>
+    <div class="actions">
+      <button type="button" class="cta" id="invita">Sfida un amico</button>
+      <button type="button" class="ghost" id="altro">Iscrivi un altro giocatore</button>
+    </div>
   </section>
-  <!-- ponytail: Google Form incorporato, risposte e grafici nella scheda "Risposte" del modulo. -->
-  <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSfPYD_tIXfdWglcNInoQt9SHNDLh790lTsbJ_YN-s6cVlBaRQ/viewform?embedded=true" title="Sondaggio compleanno">Caricamento…</iframe>
+
+  <section class="q iscritti" id="iscritti" hidden>
+    <span class="kick hud">Tabellone</span>
+    <h2>Iscritti <span class="n"></span></h2>
+    <ol class="lista"></ol>
+  </section>
 </main>
+<script>
+  // [nome, stile, difficoltà 1-3, scheda]
+  // ponytail: stile e difficoltà sono stime per orientare i principianti, non dati ufficiali
+  const roster = [
+    ["Baraka", "Corpo a corpo", 1, "Guerriero tarkatan dell'Outworld, con lame che gli escono dagli avambracci."],
+    ["Cassie Cage", "Bilanciato", 1, "Figlia di Johnny Cage e Sonya Blade, guida le Forze Speciali. Pistole e drone."],
+    ["Cetrion", "Distanza", 2, "Dea Antica della vita, figlia di Kronika. Combatte con gli elementi della natura."],
+    ["D'Vorah", "Trappole", 2, "Kytinn, metà donna e metà insetto. Attacca con sciami e pungiglioni."],
+    ["Erron Black", "Distanza", 2, "Pistolero mercenario dell'Outworld: revolver, fucile e sabbia acida."],
+    ["Frost", "Corpo a corpo", 2, "Ex allieva di Sub-Zero, trasformata in cyborg. Combatte col ghiaccio."],
+    ["Fujin", "In aria", 3, "Dio del vento e fratello di Raiden. Usa il vento e passa molto tempo in aria."],
+    ["Geras", "Forza e prese", 2, "Servitore di Kronika fatto di sabbia. Può fermare e riavvolgere il tempo."],
+    ["Jacqui Briggs", "Corpo a corpo", 1, "Figlia di Jax, soldato delle Forze Speciali con guanti potenziati."],
+    ["Jade", "Bilanciato", 2, "Guardia del corpo di Kitana, con bastone e lama a boomerang."],
+    ["Jax Briggs", "Forza e prese", 1, "Veterano delle Forze Speciali con braccia bioniche. Colpi pesanti."],
+    ["Joker", "Bilanciato", 2, "Il nemico di Batman, ospite da DC Comics. Pistola, coltelli e scherzi pericolosi."],
+    ["Johnny Cage", "Corpo a corpo", 1, "Star dei film d'azione di Hollywood. Calci volanti e molta scena."],
+    ["Kabal", "Velocità", 3, "Ex Black Dragon col respiratore. Velocissimo, armato di due lame uncinate."],
+    ["Kano", "Bilanciato", 1, "Capo del clan Black Dragon, con un occhio cibernetico che spara laser."],
+    ["Kitana", "Distanza", 2, "Principessa di Edenia. Combatte con due ventagli d'acciaio."],
+    ["Kollector", "Trappole", 2, "Esattore di Shao Kahn con sei braccia. Lancia quello che tiene nella sacca."],
+    ["Kotal Kahn", "Forza e prese", 2, "Imperatore dell'Outworld e guerriero del sole, con totem che lo potenziano."],
+    ["Kung Lao", "Corpo a corpo", 2, "Monaco Shaolin col cappello dalla tesa tagliente."],
+    ["Liu Kang", "Bilanciato", 1, "Campione Shaolin di Mortal Kombat. Calci volanti e fuoco del drago."],
+    ["Mileena", "Corpo a corpo", 2, "Clone di Kitana con i denti dei tarkatan. Sai, teletrasporto, attacchi rapidi."],
+    ["Nightwolf", "Bilanciato", 2, "Sciamano nativo americano con tomahawk e arco spirituale."],
+    ["Noob Saibot", "Trappole", 3, "Il primo Sub-Zero, tornato come spettro d'ombra. Combatte insieme a un suo clone."],
+    ["Rain", "Distanza", 2, "Semidio di Edenia, figlio di Argus. Controlla l'acqua."],
+    ["Raiden", "Bilanciato", 1, "Dio del tuono e protettore del Regno della Terra. Fulmini e teletrasporto."],
+    ["Rambo", "Trappole", 2, "John Rambo dei film, ospite nel gioco. Arco, coltello ed esplosivi."],
+    ["RoboCop", "Distanza", 1, "Il poliziotto cyborg dei film, ospite nel gioco. Pistola e gadget."],
+    ["Scorpion", "Bilanciato", 1, "Ninja spettrale del Netherrealm. Il suo arpione con catena ti tira a sé."],
+    ["Shang Tsung", "Trasformazioni", 3, "Stregone che ruba le anime e si trasforma negli altri lottatori."],
+    ["Shao Kahn", "Forza e prese", 2, "Imperatore conquistatore dell'Outworld, con martello da guerra e lancia."],
+    ["Sheeva", "Forza e prese", 2, "Regina degli Shokan. Quattro braccia e salti che schiacciano."],
+    ["Sindel", "Distanza", 2, "Regina di Edenia e madre di Kitana. Usa urla e capelli come armi."],
+    ["Skarlet", "Bilanciato", 2, "Maga del sangue: lo trasforma in lame, proiettili e trappole."],
+    ["Sonya Blade", "Bilanciato", 1, "Generale delle Forze Speciali e madre di Cassie. Anelli di energia e prese."],
+    ["Spawn", "Bilanciato", 2, "Al Simmons, il soldato tornato dall'inferno dei fumetti Image. Catene e mantello."],
+    ["Sub-Zero", "Bilanciato", 1, "Gran maestro dei Lin Kuei. Congela l'avversario e crea armi di ghiaccio."],
+    ["Terminator", "Forza e prese", 2, "Il T-800 dei film, ospite nel gioco. Lento ma quasi impossibile da fermare."],
+  ];
+  const RANDOM = ["A caso", "Nessun preferito", 0, "Va bene così: il personaggio lo scegli sabato, sul momento."];
+  const KEY = 'mk11-iscrizione';
+  // Supabase, progetto personale gratuito. La chiave publishable è pubblica per design:
+  // i dati li proteggono RLS e i permessi per colonna di supabase.sql (si può solo iscriversi e leggere il tabellone)
+  const SB_URL = 'https://srqpgwmwxxebdcdffsck.supabase.co', SB_KEY = 'sb_publishable_6JG6QA9A0nFYZlBiFq7beg_25e6gq2w';
+  const sb = (q, o = {}) => fetch(`${SB_URL}/rest/v1/iscrizioni${q}`, { ...o, headers: { apikey: SB_KEY, 'Content-Type': 'application/json', ...o.headers } });
+  const $ = s => document.querySelector(s);
+  const form = $('#iscrizione'), done = $('.done'), grid = $('#grid'), cerca = $('#cerca'), scheda = $('#scheda');
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  for (let i = 0; i < 12; i++) {
+    const e = document.createElement('i');
+    e.style.cssText = `--l:${rnd(0, 100)}%;--s:${rnd(8, 14)}px;--d:${rnd(8, 15)}s;--dl:${-rnd(0, 15)}s;--x:${rnd(-60, 60)}px`;
+    $('.embers').append(e);
+  }
+
+  const days = Math.round((new Date(2026, 10, 21) - new Date().setHours(0, 0, 0, 0)) / 864e5);
+  $('#quando').textContent = days > 1 ? `tra ${days} giorni` : days === 1 ? 'domani' : 'stasera';
+
+  // griglia lottatori: icone ufficiali in img/personaggi/<nome>.webp, caricate solo quando arrivano a schermo
+  const info = {}, hue = {};
+  // tinta dominante di ogni icona (calcolata una volta dalle immagini), colora la scheda
+  const TINT = {'baraka':25,'cassie-cage':22,'cetrion':138,'d-vorah':39,'erron-black':12,'frost':207,'fujin':22,'geras':34,'jacqui-briggs':34,'jade':152,'jax-briggs':17,'johnny-cage':21,'joker':299,'kabal':34,'kano':17,'kitana':221,'kollector':35,'kotal-kahn':102,'kung-lao':352,'liu-kang':351,'mileena':291,'nightwolf':342,'noob-saibot':30,'raiden':31,'rain':264,'rambo':19,'robocop':13,'scorpion':34,'shang-tsung':26,'shao-kahn':33,'sheeva':31,'sindel':287,'skarlet':354,'sonya-blade':6,'spawn':3,'sub-zero':217,'terminator':16};
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const skulls = n => `<i class="skulls">${[1, 2, 3].map(i => `<svg${i <= n ? ' class="on"' : ''}><use href="#skull"/></svg>`).join('')}</i>`;
+  roster.forEach(r => {
+    const n = r[0];
+    info[n] = r;
+    hue[n] = TINT[slug(n)] ?? 30;
+    const l = document.createElement('label');
+    l.className = 'opt tile';
+    l.style.setProperty('--h', hue[n]);
+    l.innerHTML = `<input type="radio" name="main"><img src="img/personaggi/${slug(n)}.webp" width="90" height="120" alt="" loading="lazy" decoding="async"><span></span>`;
+    l.firstChild.value = n; l.lastChild.textContent = n;
+    grid.append(l);
+  });
+
+  function portrait(el, n) {
+    el.style.setProperty('--h', hue[n] ?? 40);
+    el.style.backgroundImage = n ? `url("img/personaggi/${slug(n)}.webp")` : '';
+    el.classList.toggle('pic', !!n);
+  }
+  const pop = (el, from) => calm || el.animate([from, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.34, 1.56, .64, 1)' });
+
+  // scheda in alto che resta visibile mentre scorri la griglia: mostra il personaggio sotto il mouse, altrimenti quello scelto
+  let showing;
+  function show(n) {
+    if (n === showing) return;
+    showing = n;
+    const [name, stile, diff, desc] = info[n] || RANDOM;
+    portrait(scheda.querySelector('.f-ini'), n);
+    scheda.style.setProperty('--h', hue[n] ?? 30);
+    scheda.querySelector('.s-name').textContent = name;
+    scheda.querySelector('.s-stile').textContent = stile;
+    scheda.querySelector('.s-diff').innerHTML = diff ? `${skulls(diff)} ${['', 'Facile', 'Media', 'Difficile'][diff]}` : '';
+    scheda.querySelector('.s-desc').textContent = desc;
+    pop(scheda, { opacity: .4, transform: 'translateY(4px)' });
+  }
+  // solo mouse vero: col dito la scheda segue il tocco (change), non quello che scorre sotto
+  grid.addEventListener('pointerover', e => { const t = e.pointerType === 'mouse' && e.target.closest('.tile'); if (t) show(t.querySelector('input').value); });
+  grid.addEventListener('pointerleave', () => show(form.main.value));
+
+  cerca.oninput = () => {
+    const q = cerca.value.trim().toLowerCase();
+    let shown = 0;
+    for (const t of grid.children) shown += !(t.hidden = !t.textContent.toLowerCase().includes(q));
+    $('.none').hidden = shown > 0;
+  };
+
+  // Invio nei campi di testo non invia il modulo: passa al campo dopo o chiude la tastiera
+  form.nome.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); form.tag.focus(); } };
+  form.tag.onkeydown = cerca.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
+
+  const current = () => { const d = Object.fromEntries(new FormData(form)); d.nome = d.nome.trim(); d.tag = d.tag.trim(); return d; };
+
+  // la stessa scheda (VS e conferma) si disegna da un oggetto risposte, una sola fonte
+  let painted;
+  function paint(d) {
+    for (const c of document.querySelectorAll('.fighter')) {
+      const ini = c.querySelector('.f-ini');
+      portrait(ini, d.main);
+      if (painted !== undefined && painted !== d.main) pop(ini, { opacity: .3, transform: 'scale(.8)' });
+      c.querySelector('.f-name').textContent = d.tag || d.nome || 'Il tuo nome';
+      c.querySelector('.f-meta').textContent = [d.livello, d.main].filter(Boolean).join(' · ') || 'Livello e personaggio';
+    }
+    painted = d.main;
+  }
+  form.addEventListener('input', () => paint(current()));
+  form.addEventListener('change', () => { paint(current()); show(form.main.value); });
+
+  function boom() {
+    if (calm) return;
+    const fx = [Object.assign(document.createElement('div'), { className: 'flash' })];
+    for (let i = 0; i < 30; i++) {
+      const s = document.createElement('i');
+      s.className = 'spark';
+      const a = rnd(0, Math.PI * 2), r = rnd(80, 260);
+      s.style.cssText = `--x:${Math.cos(a) * r}px;--y:${Math.sin(a) * r - 60}px`;
+      fx.push(s);
+    }
+    for (const el of fx) { el.onanimationend = () => el.remove(); document.body.append(el); }
+  }
+
+  function showDone(d, party) {
+    paint(d);
+    form.hidden = true; done.hidden = false;
+    scrollTo({ top: 0, behavior: 'instant' });
+    done.querySelector('h2').focus({ preventScroll: true });
+    if (party) boom();
+  }
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    // ponytail: novalidate + .tried così gli errori sono i nostri, in stile, non i fumetti del browser
+    if (!form.checkValidity()) {
+      form.classList.remove('tried'); void form.offsetWidth; form.classList.add('tried'); // riavvia lo shake
+      const bad = form.querySelector(':invalid');
+      bad.closest('.q').scrollIntoView({ block: 'start' });
+      bad.focus({ preventScroll: true });
+      return;
+    }
+    const d = current(), cta = form.querySelector('.cta'), oops = $('.oops');
+    cta.disabled = true; cta.textContent = 'Invio…'; oops.hidden = true;
+    let ok = false;
+    try { ok = (await sb('', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ nome: d.nome, tag: d.tag || null, livello: d.livello, main: d.main || null }) })).ok; } catch {}
+    cta.disabled = false; cta.textContent = 'Iscrivimi';
+    if (!ok) { oops.hidden = false; return; }
+    // il browser ricorda solo che da qui ti sei già iscritto, così al ritorno vedi la conferma
+    try { localStorage.setItem(KEY, JSON.stringify(d)); } catch {}
+    showDone(d, true);
+    carica();
+  };
+
+  // tabellone: righe scritte da altri, quindi solo textContent e solo personaggi che conosciamo
+  async function carica() {
+    try {
+      const r = await sb('?select=display,livello,main&order=created_at');
+      if (!r.ok) return;
+      const list = await r.json(), ol = $('.lista');
+      ol.replaceChildren(...list.map(x => {
+        const li = document.createElement('li'), main = info[x.main] ? x.main : '';
+        li.innerHTML = '<span class="f-ini"><svg viewBox="0 0 100 120" aria-hidden="true"><use href="#ninja"/></svg><b class="q-mark" aria-hidden="true">?</b></span><div><strong></strong><small></small></div>';
+        portrait(li.firstChild, main);
+        li.querySelector('strong').textContent = x.display;
+        li.querySelector('small').textContent = [x.livello, main].filter(Boolean).join(' · ');
+        return li;
+      }));
+      $('#iscritti .n').textContent = `(${list.length})`;
+      $('#quanti').textContent = list.length === 1 ? '1 iscritto' : `${list.length} iscritti`;
+      $('#iscritti').hidden = $('#quanti').hidden = !list.length;
+    } catch {}
+  }
+
+  $('#invita').onclick = async e => {
+    const url = location.href.split('#')[0];
+    if (navigator.share) return navigator.share({ title: 'Torneo di Mortal Kombat 11', text: 'Iscriviti', url }).catch(() => {});
+    try { await navigator.clipboard.writeText(url); e.target.textContent = 'Link copiato'; } catch {}
+  };
+
+  $('#altro').onclick = () => {
+    form.reset(); form.classList.remove('tried'); cerca.oninput();
+    paint(current()); show('');
+    done.hidden = true; form.hidden = false;
+    form.scrollIntoView();
+    form.nome.focus({ preventScroll: true });
+  };
+
+  paint(current());
+  show(form.main.value);
+  carica();
+  try { const saved = JSON.parse(localStorage.getItem(KEY)); if (saved) showDone(saved); } catch {}
+</script>
 </body>
 </html>
