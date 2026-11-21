@@ -186,7 +186,8 @@
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const TIER = { 'Esperto': 0, 'Me la cavo': 1, 'Principiante': 2 };
-  const TOKEN = decodeURIComponent(location.hash.slice(1));
+  // dal link si prende solo il token (32 caratteri esadecimali): virgolette, spazi o pezzi in più copiati dal telefono non contano
+  const TOKEN = (decodeURIComponent(location.hash).match(/[0-9a-f]{32}/i) || [''])[0].toLowerCase();
   const POLL_MS = 3000; // ponytail: polling, basta per una festa; realtime di Supabase se servisse sotto il secondo
 
   // --- motore
@@ -518,7 +519,7 @@
 
   (async () => {
     if (TOKEN) try { admin = await (await rpc('regia_entra', { token: TOKEN })).json() === true; } catch {}
-    if (TOKEN && !admin) say('Link di regia non valido: vedi il tabellone in sola lettura');
+    if (location.hash.length > 1 && !admin) say(TOKEN ? 'Link di regia non valido: vedi il tabellone in sola lettura' : 'Link di regia incompleto: manca un pezzo del codice dopo #');
     document.body.classList.toggle('is-admin', admin);
     document.body.classList.toggle('embed', EMBED);
     new ResizeObserver(tell).observe($('.app'));
