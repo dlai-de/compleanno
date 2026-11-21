@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b0708">
-<title>Regia torneo MK11</title>
+<title>Torneo MK11 live</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
 <style>
@@ -85,22 +84,40 @@
   .tab td:first-child { color: var(--muted); }
   .tab .q td:nth-child(2) { color: var(--gold); }
   .gms { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
-  .sc { float: right; margin-right: -22px; font-size: 14px; }
+  .sc { float: right; margin-left: 6px; font-size: 14px; }
 
   /* giocatori */
-  .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .players label { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; }
+  .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .players label { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; cursor: pointer; }
   .players label:has(input:not(:checked)) { opacity: .4; text-decoration: line-through; }
   .players input { flex: none; width: 18px; height: 18px; accent-color: var(--red); }
   .players div { min-width: 0; }
   .players b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 800 18px/1 var(--hud); text-transform: uppercase; }
   .players small { font-size: 12px; color: var(--muted); }
   .add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .add input, .add select { height: 52px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font: 700 20px/1 var(--hud); letter-spacing: .04em; outline: none; }
+  .inp { height: 52px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); font: 700 20px/1 var(--hud); letter-spacing: .04em; outline: none; }
+  .inp:focus { border-color: var(--gold); }
+  .inp option { background: var(--bg); }
   .add input { flex: 1 1 200px; text-transform: uppercase; }
-  .add input:focus, .add select:focus { border-color: var(--gold); }
-  .add option { background: var(--bg); }
-  .oops { margin: 10px 0 0; font: 700 15px/1.2 var(--hud); letter-spacing: .06em; text-transform: uppercase; color: #ff4a2a; }
+  .players li { display: flex; align-items: center; gap: 2px; padding-right: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .players li label { flex: 1; border: 0; background: none; }
+  .mini { flex: none; width: 34px; height: 34px; border: 0; border-radius: 8px; background: none; font-size: 18px; color: var(--muted); }
+  .mini:hover { background: var(--card); color: var(--text); }
+
+  /* regia: comandi visibili solo col token */
+  body:not(.is-admin) .admin, body.is-admin .view { display: none !important; }
+  .ctrl { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ghost { height: 52px; padding: 0 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--card); font: 700 18px/1 var(--hud); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+  .ghost:disabled { opacity: .4; cursor: default; }
+  .set { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+  .set label { display: grid; gap: 6px; color: var(--muted); }
+  .set select { max-width: calc(100vw - 32px); }
+  .set input { width: 110px; }
+  .live { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--muted); }
+  .live i { width: 8px; height: 8px; border-radius: 50%; background: #3bff7a; box-shadow: 0 0 8px #3bff7a; animation: pulse 1.4s ease-in-out infinite; }
+  .live.off i { background: #ff3b1f; box-shadow: 0 0 8px #ff3b1f; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .oops { margin: 14px 0 0; font: 700 15px/1.2 var(--hud); letter-spacing: .06em; text-transform: uppercase; color: #ff4a2a; }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
@@ -109,63 +126,69 @@
 <main class="app">
   <header class="top">
     <div>
-      <h1>Regia torneo</h1>
+      <span class="live hud" id="live"><i></i><span>Collegamento…</span></span>
+      <h1><span class="admin">Regia torneo</span><span class="view">Tabellone live</span></h1>
       <p class="fmt hud" id="fmt"></p>
       <p class="hud" id="durata"></p>
     </div>
-    <button type="button" class="cta" id="dado"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.8"/><circle cx="16" cy="8" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="8" cy="16" r="1.8"/><circle cx="16" cy="16" r="1.8"/></g></svg>Rifai sorteggio</button>
+    <div class="ctrl admin">
+      <button type="button" class="cta" id="dado"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.8"/><circle cx="16" cy="8" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="8" cy="16" r="1.8"/><circle cx="16" cy="16" r="1.8"/></g></svg>Rifai sorteggio</button>
+      <button type="button" class="ghost" id="azzera">Azzera risultati</button>
+    </div>
   </header>
 
-  <div class="warn" id="warn" hidden><span class="hud">I giocatori sono cambiati: il sorteggio è quello vecchio</span><button type="button" class="cta" id="dado2">Rifai sorteggio</button></div>
+  <p class="oops" id="oops" role="alert" hidden></p>
+  <div class="warn admin" id="warn" hidden><span class="hud">I giocatori sono cambiati: il sorteggio è quello vecchio</span><button type="button" class="cta" id="dado2">Rifai sorteggio</button></div>
+
+  <section class="set admin">
+    <label><span class="hud">Formato</span><select class="inp" id="formato"></select></label>
+    <label><span class="hud">Minuti a incontro</span><input class="inp" id="minuti" type="number" min="1" max="30" inputmode="numeric"></label>
+  </section>
 
   <section id="ora">
     <h2 id="ora-t"></h2>
     <div class="next" id="next"><button type="button" class="a"></button><span class="vs" aria-hidden="true">VS</span><button type="button" class="b"></button></div>
-    <p class="hint" id="hint">Tocca chi ha vinto 2-0 · ritocca per il 2-1</p>
+    <p class="hint admin" id="hint">Tocca chi ha vinto 2-0 · ritocca per il 2-1 · ancora per annullare</p>
     <p class="champ" id="champ" hidden></p>
   </section>
 
   <section id="gironi-s"><h2 id="gironi-t"></h2><div class="gironi" id="gironi"></div></section>
   <section id="ko-s"><h2>Fase finale</h2><div class="bracket" id="ko"></div></section>
 
-  <section>
+  <section class="admin">
     <h2>Giocatori <small id="quanti"></small></h2>
     <ul class="players" id="players"></ul>
     <form class="add" id="add">
-      <input name="nome" placeholder="Aggiungi giocatore" maxlength="40" required pattern=".*\S.*" autocomplete="off" enterkeyhint="done" aria-label="Nome">
-      <select name="livello" aria-label="Livello"><option>Principiante</option><option>Me la cavo</option><option>Esperto</option></select>
+      <input class="inp" name="nome" placeholder="Aggiungi giocatore" maxlength="40" required pattern=".*\S.*" autocomplete="off" enterkeyhint="done" aria-label="Nome">
+      <select class="inp" name="livello" aria-label="Livello"><option>Principiante</option><option>Me la cavo</option><option>Esperto</option></select>
       <button class="cta">Aggiungi</button>
     </form>
-    <p class="oops" id="oops" role="alert" hidden>Non è partita: controlla la connessione e riprova</p>
   </section>
 </main>
 <script>
-  // stessa chiave publishable della pagina pubblica: da qui si può fare solo quello che può fare chiunque (iscrivere e leggere il tabellone)
+  // chiave publishable: senza token si legge e basta; le scritture della regia passano da funzioni che controllano il token (regia.sql)
   const SB_URL = 'https://srqpgwmwxxebdcdffsck.supabase.co', SB_KEY = 'sb_publishable_6JG6QA9A0nFYZlBiFq7beg_25e6gq2w';
-  const sb = (q, o = {}) => fetch(`${SB_URL}/rest/v1/iscrizioni${q}`, { ...o, headers: { apikey: SB_KEY, 'Content-Type': 'application/json', ...o.headers } });
+  const H = { apikey: SB_KEY, 'Content-Type': 'application/json' };
+  const sb = (q, o = {}) => fetch(`${SB_URL}/rest/v1/${q}`, { ...o, headers: { ...H, ...o.headers } });
+  const rpc = (fn, body) => sb(`rpc/${fn}`, { method: 'POST', body: JSON.stringify(body) });
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  const MIN_PER_MATCH = 4; // ponytail: stima a occhio con una console (scelta personaggio + due round vinti), cambiala qui
   const TIER = { 'Esperto': 0, 'Me la cavo': 1, 'Principiante': 2 };
-
-  // stato della regia: solo su questo dispositivo
-  // ponytail: localStorage, un solo admin con un solo telefono; se serve seguirlo da due dispositivi va spostato su Supabase
-  const KEY = 'mk11-regia';
-  let st = { out: [], ids: [], order: [], res: {} }, players = [];
-  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY))); } catch {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} };
+  const TOKEN = decodeURIComponent(location.hash.slice(1));
+  const POLL_MS = 3000; // ponytail: polling, basta per una festa; realtime di Supabase se servisse sotto il secondo
 
   // --- motore
   // gironi all'italiana + eliminazione diretta: nessun bye, tutti giocano contro tutti nel proprio girone
   const KO = ['Finale', 'Semifinali', 'Quarti', 'Ottavi'], LET = 'ABCDEFGH';
+  // G gironi, passano i primi q di ognuno: gironi da almeno 3 (e più grandi di chi passa), così nessun girone è una formalità
+  const valid = (n, G, q) => n === 2 ? G === 1 && q === 1 : n >= 3 && Math.floor(n / G) >= Math.max(3, q + 1);
+  const formats = n => [1, 2, 4, 8].flatMap(G => [1, 2, 4].filter(q => valid(n, G, q)).map(q => ({ G, q })));
+  // automatico: più gironi possibile con almeno 3 giocatori, passano i primi 2 → tutti fanno almeno 2 incontri e il torneo non si allunga
+  const autoFmt = n => { let G = 1; while (G * 6 <= n && G < 8) G *= 2; return { G, q: n === 2 ? 1 : 2 }; };
 
-  // order: id dei giocatori, i più forti per primi. Ogni incontro: lati da un giocatore (id), da un piazzamento nel girone (g, pos) o dal vincente di un incontro (w)
-  function build(order) {
-    const n = order.length;
-    // più gironi possibile (1, 2, 4, 8) con almeno 3 giocatori: così tutti fanno almeno 2 incontri ma il torneo non si allunga
-    let G = 1; while (G * 2 * 3 <= n && G < 8) G *= 2;
-    const q = n === 2 ? 1 : 2, Q = G * q; // passano i primi 2 di ogni girone (in 2 si gioca una sfida secca)
-    const groups = Array.from({ length: G }, () => []);
+  // order: id dei giocatori, i più forti per primi. Ogni lato di un incontro: un giocatore (id), un piazzamento nel girone (g, pos) o il vincente di un incontro (w)
+  function build(order, G, q) {
+    const Q = G * q, groups = Array.from({ length: G }, () => []);
     // a serpentina: le teste di serie finiscono in gironi diversi
     order.forEach((id, i) => { const r = i % (2 * G); groups[r < G ? r : 2 * G - 1 - r].push(id); });
 
@@ -181,15 +204,16 @@
     });
     for (let r = 0; r < Math.max(...rounds.map(R => R.length)); r++)
       rounds.forEach((R, g) => (R[r] || []).forEach(([x, y]) => add({ br: 'G', grp: g, title: `Girone ${LET[g]}`, a: { id: x }, b: { id: y } })));
-    if (Q < 2) return { M, groups, G, Q, final: null };
+    if (Q < 2) return { M, groups, G, q, Q, final: null };
 
-    // fase finale: le prime dei gironi contro le seconde di un altro girone; due dello stesso girone si possono ritrovare solo in finale
+    // fase finale a tabellone standard: chi arriva primo pesca chi arriva ultimo tra i qualificati, mai dello stesso girone al primo turno se si può
     const k = Math.log2(Q);
     let seeds = [1]; while (seeds.length < Q) { const L = seeds.length * 2 + 1; seeds = seeds.flatMap(x => [x, L - x]); }
-    const slot = s => s <= G ? { g: s - 1, pos: 0 } : { g: G === 1 ? 0 : (2 * G - s) ^ 1, pos: 1 };
+    // testa di serie s → (girone, posizione): prima tutte le prime, poi tutte le seconde a gironi incrociati, ecc.
+    const slot = s => { const pos = Math.floor((s - 1) / G), i = (s - 1) % G; return { g: pos % 2 && G > 1 ? (G - 1 - i) ^ 1 : i, pos }; };
     let prev = Array.from({ length: Q / 2 }, (_, i) => add({ br: 'K', col: 0, title: KO[k - 1], a: slot(seeds[2 * i]), b: slot(seeds[2 * i + 1]) }));
     for (let r = 1; r < k; r++) prev = Array.from({ length: prev.length / 2 }, (_, i) => add({ br: 'K', col: r, title: KO[k - 1 - r], a: { w: prev[2 * i] }, b: { w: prev[2 * i + 1] } }));
-    return { M, groups, G, Q, final: prev[0] };
+    return { M, groups, G, q, Q, final: prev[0] };
   }
 
   // res[id] = [vincitore, round vinti dal perdente (0 o 1)]; i risultati che non valgono più (è cambiato qualcosa prima) si cancellano da soli
@@ -222,32 +246,60 @@
   }
   // --- fine motore
 
+  // stato condiviso, salvato su Supabase (tabella regia)
+  const blank = () => ({ out: [], ids: [], order: [], res: {}, fmt: 'auto', min: 4 });
+  let st = blank(), players = [], admin = false, seen = null, ver = 0, saving = 0, fmtKey = '';
+
+  const say = msg => { $('#oops').textContent = msg || ''; $('#oops').hidden = !msg; };
+  async function push() {
+    saving++;
+    try {
+      const r = await rpc('regia_salva', { token: TOKEN, nuovo_stato: st });
+      if (!r.ok) throw 0;
+      seen = await r.json(); say();
+    } catch { say('Non salvato: controlla la connessione e ripeti l\'ultima mossa'); }
+    saving--;
+  }
+  // ogni comando della regia: modifica lo stato, ridisegna subito, salva per tutti
+  const change = fn => { fn(); ver++; render(); push(); };
+
   const name = id => players.find(p => p.id === id)?.display ?? '?';
   const present = () => players.filter(p => !st.out.includes(p.id));
   const ids = () => present().map(p => p.id).sort((a, b) => a - b);
   const changed = () => JSON.stringify(ids()) !== JSON.stringify(st.ids);
   const played = () => Object.keys(st.res).length > 0;
+  const fmtOf = n => formats(n).find(f => `${f.G}-${f.q}` === st.fmt) || autoFmt(n);
+  const fmtText = ({ G, q }, n) => n === 2 ? 'Sfida secca'
+    : `${G === 1 ? 'Girone unico' : G + ' gironi'} · ${G === 1 && q === 1 ? 'vince chi fa più punti' : `${q === 1 ? 'passa il primo' : `passano i primi ${q}`}${G > 1 ? ' di ogni girone' : ''} ${{ 2: 'in finale', 4: 'in semifinale', 8: 'ai quarti', 16: 'agli ottavi', 32: 'ai sedicesimi' }[G * q]}`}`;
+  const mins = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+  const count = (n, f) => build(Array.from({ length: n }, (_, i) => i), f.G, f.q).M.length;
 
-  function draw() {
+  // sorteggio a fasce: casuale dentro ogni livello, i più forti fanno da teste di serie in gironi diversi (lo promette la pagina d'iscrizione)
+  function shuffle() {
     const ps = present();
     for (let i = ps.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [ps[i], ps[j]] = [ps[j], ps[i]]; }
-    // a fasce: casuale dentro ogni livello, i più forti fanno da teste di serie in gironi diversi (lo promette la pagina d'iscrizione)
     st.order = ps.sort((a, b) => TIER[a.livello] - TIER[b.livello]).map(p => p.id);
     st.ids = ids(); st.res = {};
-    for (const b of [$('#dado'), $('#dado2')]) { b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll'); }
-    render();
   }
-  const redraw = () => (!played() || confirm('Rifare il sorteggio da capo? I risultati segnati si azzerano.')) && draw();
-  $('#dado').onclick = $('#dado2').onclick = redraw;
+  function draw() {
+    change(shuffle);
+    for (const b of [$('#dado'), $('#dado2')]) { b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll'); }
+  }
+  const sure = msg => !played() || confirm(msg);
+  $('#dado').onclick = $('#dado2').onclick = () => sure('Rifare il sorteggio da capo? I risultati segnati si azzerano.') && draw();
+  $('#azzera').onclick = () => played() && confirm('Azzerare tutti i risultati? Il sorteggio resta uguale.') && change(() => st.res = {});
+  $('#formato').onchange = e => {
+    if (sure('Cambiare formato azzera i risultati. Procedo?')) change(() => { st.fmt = e.target.value; st.res = {}; });
+    else e.target.value = st.fmt;
+  };
+  $('#minuti').onchange = e => { const v = Math.round(+e.target.value); if (v >= 1 && v <= 30) change(() => st.min = v); };
 
   const label = (s, M) => s.w != null ? `Vince #${M[s.w].no}` : `${s.pos + 1}° girone ${LET[s.g]}`;
   // tocco: vince 2-0 → ritocco: 2-1 → ritocco: annullato
-  const pick = (m, pid) => {
+  const pick = (m, pid) => change(() => {
     const r = st.res[m.id];
     if (!r || r[0] !== pid) st.res[m.id] = [pid, 0]; else if (r[1] === 0) st.res[m.id] = [pid, 1]; else delete st.res[m.id];
-    render();
-  };
-  const mins = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60 ? m % 60 + ' min' : ''}`;
+  });
 
   function card(m, M, next) {
     const d = el('div', 'm' + (m === next ? ' now' : ''));
@@ -256,7 +308,7 @@
       const b = el('button', pid == null ? 'tbd' : m.win == null ? '' : m.win === pid ? 'win' : 'lose', pid == null ? label(src, M) : name(pid));
       if (m.win === pid && pid != null) b.prepend(el('span', 'sc', `2-${m.score}`));
       b.type = 'button';
-      b.disabled = m.A == null || m.B == null;
+      b.disabled = !admin || m.A == null || m.B == null;
       if (!b.disabled) b.onclick = () => pick(m, pid);
       d.append(b);
     }
@@ -264,26 +316,25 @@
   }
 
   function render() {
-    renderPlayers();
-    $('#warn').hidden = !changed();
+    if (admin) renderAdmin();
+    $('#warn').hidden = !admin || !changed();
     const n = st.order.length;
     $('#ora').hidden = $('#gironi-s').hidden = $('#ko-s').hidden = n < 2;
-    if (n < 2) { $('#fmt').textContent = 'Servono almeno 2 giocatori'; $('#durata').textContent = ''; save(); return; }
+    if (n < 2) { $('#fmt').textContent = admin ? 'Servono almeno 2 giocatori' : 'Il sorteggio non è ancora fatto'; $('#durata').textContent = ''; return; }
 
-    const B = build(st.order), { M, groups, G, Q } = B, { tab, champ } = resolve(B, st.order, st.res);
-    save();
-    $('#fmt').textContent = (Q < 2 ? 'Sfida secca' : `${G === 1 ? 'Girone unico' : G + ' gironi'} · passano i primi 2 ${{ 2: 'in finale', 4: 'in semifinale', 8: 'ai quarti', 16: 'agli ottavi' }[Q]}`) + ` · ${n} giocatori`;
-    $('#durata').textContent = `${M.length} incontri · nessun bye · circa ${mins(M.length * MIN_PER_MATCH)}`;
+    const f = fmtOf(n), B = build(st.order, f.G, f.q), { M, groups, G, Q } = B, { tab, champ } = resolve(B, st.order, st.res);
+    const left = M.filter(m => m.win == null).length;
+    $('#fmt').textContent = `${fmtText(f, n)} · ${n} giocatori`;
+    $('#durata').textContent = `${M.length} incontri · nessun bye · ${left ? `ne mancano ${left}, circa ${mins(left * st.min)}` : 'finito'}`;
 
     // prossimo incontro: il primo pronto in ordine di gioco
     const next = M.find(m => m.A != null && m.B != null && m.win == null);
-    $('#next').hidden = $('#hint').hidden = !next;
+    $('#next').hidden = !next; $('#hint').hidden = !next || !admin;
     $('#champ').hidden = champ == null;
     $('#ora-t').textContent = next ? `Ora tocca a · #${next.no} ${next.title}` : champ != null ? 'Torneo finito' : '';
     if (champ != null) $('#champ').replaceChildren(el('small', '', 'Campione'), name(champ));
-    if (next) for (const [cls, pid] of [['.a', next.A], ['.b', next.B]]) { const b = $('#next ' + cls); b.textContent = name(pid); b.onclick = () => pick(next, pid); }
+    if (next) for (const [cls, pid] of [['.a', next.A], ['.b', next.B]]) { const b = $('#next ' + cls); b.textContent = name(pid); b.disabled = !admin; b.onclick = () => pick(next, pid); }
 
-    // gironi: classifica + incontri
     $('#gironi-t').textContent = G === 1 ? 'Girone' : 'Gironi';
     $('#gironi').replaceChildren(...groups.map((g, gi) => {
       const box = el('div', 'grp'), t = el('table', 'tab'), list = el('div', 'gms');
@@ -298,7 +349,6 @@
       return box;
     }));
 
-    // fase finale
     $('#ko-s').hidden = Q < 2;
     const cols = [];
     for (const m of M) if (m.br === 'K') (cols[m.col] ??= []).push(m);
@@ -310,47 +360,93 @@
     }));
   }
 
-  function renderPlayers() {
-    const ul = $('#players');
-    ul.replaceChildren(...players.map(p => {
-      const li = el('li'), l = el('label'), cb = el('input');
+  function renderAdmin() {
+    const n = st.order.length, sel = $('#formato');
+    // le opzioni si ricostruiscono solo se cambiano, altrimenti il polling chiuderebbe il menu mentre lo apri
+    const key = `${n}|${st.fmt}|${st.min}`;
+    if (key !== fmtKey) {
+      fmtKey = key;
+      const a = autoFmt(n);
+      sel.replaceChildren(...(n < 2 ? [] : [['auto', `Automatico: ${fmtText(a, n)} (${count(n, a)} incontri)`], ...formats(n).map(f => [`${f.G}-${f.q}`, `${fmtText(f, n)} · ${count(n, f)} incontri, ~${mins(count(n, f) * st.min)}`])]).map(([v, t]) => { const o = el('option', '', t); o.value = v; return o; }));
+      sel.value = formats(n).some(f => `${f.G}-${f.q}` === st.fmt) ? st.fmt : 'auto';
+    }
+    if (document.activeElement !== $('#minuti')) $('#minuti').value = st.min;
+    $('#azzera').disabled = !played();
+
+    $('#players').replaceChildren(...players.map(p => {
+      const li = el('li'), l = el('label'), cb = el('input'), d = el('div');
       cb.type = 'checkbox'; cb.checked = !st.out.includes(p.id);
-      cb.onchange = () => { st.out = cb.checked ? st.out.filter(x => x !== p.id) : [...st.out, p.id]; rosterChanged(); };
-      const d = el('div'); d.append(el('b', '', p.display), el('small', '', p.livello)); l.append(cb, d);
-      li.append(l);
+      cb.onchange = () => change(() => { st.out = cb.checked ? st.out.filter(x => x !== p.id) : [...st.out, p.id]; if (!played()) shuffle(); });
+      d.append(el('b', '', p.display), el('small', '', p.livello));
+      l.append(cb, d);
+      const ren = el('button', 'mini', '✎'), del = el('button', 'mini', '×');
+      ren.type = del.type = 'button'; ren.title = 'Rinomina o cambia livello'; del.title = 'Elimina iscrizione';
+      ren.setAttribute('aria-label', `Rinomina ${p.display}`); del.setAttribute('aria-label', `Elimina ${p.display}`);
+      ren.onclick = async () => {
+        const nome = prompt('Nome sul tabellone (max 20)', p.display);
+        if (nome == null) return;
+        const liv = prompt('Livello: Principiante, Me la cavo o Esperto', p.livello);
+        if (liv != null && !(liv in TIER)) return alert('Livello non valido');
+        await act({ giocatore: p.id, nuovo_nome: nome.trim().slice(0, 20) || null, nuovo_livello: liv });
+      };
+      del.onclick = async () => {
+        if (!confirm(`Eliminare l'iscrizione di ${p.display}? Sparisce anche dal tabellone pubblico.`)) return;
+        await act({ giocatore: p.id, elimina: true });
+      };
+      li.append(l, ren, del);
       return li;
     }));
     $('#quanti').textContent = `${present().length} in gara${st.out.length ? ` · ${st.out.length} assenti` : ''}`;
   }
 
-  // giocatori cambiati: se non si è ancora giocato si risorteggia subito, altrimenti decide l'admin
-  const rosterChanged = () => changed() && !played() ? draw() : render();
+  async function act(body) {
+    try { if (!(await rpc('regia_giocatore', { token: TOKEN, ...body })).ok) throw 0; say(); } catch { say('Non è andata: controlla la connessione e riprova'); }
+    await poll();
+  }
 
   $('#add').onsubmit = async e => {
     e.preventDefault();
     const f = e.target, btn = f.querySelector('button');
     if (!f.reportValidity()) return;
-    btn.disabled = true; $('#oops').hidden = true;
+    btn.disabled = true;
     let ok = false;
-    try { ok = (await sb('', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ nome: f.nome.value.trim(), livello: f.livello.value }) })).ok; } catch {}
+    try { ok = (await sb('iscrizioni', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ nome: f.nome.value.trim(), livello: f.livello.value }) })).ok; } catch {}
     btn.disabled = false;
-    if (!ok) { $('#oops').hidden = false; return; }
-    f.reset(); f.nome.focus();
-    await load();
-    if (changed() && !redraw()) render();
+    if (!ok) return say('Non è partita: controlla la connessione e riprova');
+    say(); f.reset(); f.nome.focus();
+    await poll();
+    if (changed() && played() && confirm('Rifare subito il sorteggio con il nuovo giocatore? I risultati segnati si azzerano.')) draw();
   };
 
-  async function load() {
+  // legge giocatori e stato; se nel frattempo la regia ha cambiato qualcosa in locale, la lettura vecchia si scarta
+  async function poll() {
+    const v = ver;
+    let ok = false;
     try {
-      const r = await sb('?select=id,display,livello&order=created_at');
-      if (r.ok) { players = await r.json(); return true; }
-    } catch {}
-    $('#oops').hidden = false;
+      const [r1, r2] = await Promise.all([sb('iscrizioni?select=id,display,livello&order=created_at'), sb('regia?select=stato,aggiornato')]);
+      if (!r1.ok || !r2.ok) throw 0;
+      players = await r1.json();
+      const [row] = await r2.json();
+      if (!row) throw 0;
+      if (v === ver && !saving && row.aggiornato !== seen) { seen = row.aggiornato; st = { ...blank(), ...row.stato }; }
+      ok = true;
+      $('#live').classList.remove('off');
+      $('#live span').textContent = `Live · ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    } catch {
+      $('#live').classList.add('off');
+      $('#live span').textContent = 'Non collegato';
+    }
+    // giocatori cambiati prima che si giochi: si risorteggia da soli; dopo decide la regia (avviso giallo)
+    if (ok && admin && v === ver && changed() && !played()) draw(); else render();
   }
 
-  // chi si iscrive dalla pagina pubblica compare quando torni su questa scheda
-  document.addEventListener('visibilitychange', async () => { if (!document.hidden && await load()) rosterChanged(); });
-  load().then(rosterChanged);
+  (async () => {
+    if (TOKEN) try { admin = await (await rpc('regia_entra', { token: TOKEN })).json() === true; } catch {}
+    if (TOKEN && !admin) say('Link di regia non valido: vedi il tabellone in sola lettura');
+    document.body.classList.toggle('is-admin', admin);
+    await poll();
+    setInterval(poll, POLL_MS);
+  })();
 </script>
 </body>
 </html>
