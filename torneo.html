@@ -118,6 +118,9 @@
   .live.off i { background: #ff3b1f; box-shadow: 0 0 8px #ff3b1f; }
   @keyframes pulse { 50% { opacity: .35; } }
   #diretta.on { background: var(--card); box-shadow: none; border: 1px solid #3bff7a; color: #3bff7a; }
+  .poi { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; margin: 14px 0 0; }
+  #poi { color: var(--muted); font-size: 15px; }
+  .m .rim { position: absolute; top: 5px; right: 28px; font: 700 10px/1 var(--hud); letter-spacing: .08em; text-transform: uppercase; color: #ff9b45; }
   .wait { margin-top: 40px; text-align: center; font-size: 20px; color: var(--muted); }
   /* dentro la pagina d'iscrizione: niente titolo né sfondo, l'altezza la decide il genitore */
   html:has(body.embed), body.embed { background: transparent; min-height: 0; }
@@ -157,6 +160,7 @@
     <h2 id="ora-t"></h2>
     <div class="next" id="next"><button type="button" class="a"></button><span class="vs" aria-hidden="true">VS</span><button type="button" class="b"></button></div>
     <p class="hint admin" id="hint">Tocca chi ha vinto 2-0 · ritocca per il 2-1 · ancora per annullare</p>
+    <p class="poi"><button type="button" class="ghost admin" id="rimanda">Rimanda in coda ⏭</button><span class="hud" id="poi"></span></p>
     <p class="champ" id="champ" hidden></p>
   </section>
 
@@ -265,7 +269,7 @@
   // --- fine motore
 
   // stato condiviso, salvato su Supabase (tabella regia)
-  const blank = () => ({ out: [], ids: [], order: [], late: [], res: {}, fmt: 'auto', min: 4, live: false });
+  const blank = () => ({ out: [], ids: [], order: [], late: [], res: {}, post: {}, postN: 0, fmt: 'auto', min: 4, live: false });
   let st = blank(), players = [], admin = false, seen = null, ver = 0, saving = 0, fmtKey = '';
 
   const say = msg => { $('#oops').textContent = msg || ''; $('#oops').hidden = !msg; };
@@ -297,7 +301,7 @@
     const ps = present();
     for (let i = ps.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [ps[i], ps[j]] = [ps[j], ps[i]]; }
     st.order = ps.sort((a, b) => TIER[a.livello] - TIER[b.livello]).map(p => p.id);
-    st.ids = ids(); st.res = {}; st.late = [];
+    st.ids = ids(); st.res = {}; st.late = []; st.post = {};
   }
   function draw() {
     change(shuffle);
@@ -305,9 +309,9 @@
   }
   const sure = msg => !played() || confirm(msg);
   $('#dado').onclick = $('#dado2').onclick = () => sure('Rifare il sorteggio da capo? I risultati segnati si azzerano.') && draw();
-  $('#azzera').onclick = () => played() && confirm('Azzerare tutti i risultati? Il sorteggio resta uguale.') && change(() => st.res = {});
+  $('#azzera').onclick = () => played() && confirm('Azzerare tutti i risultati? Il sorteggio resta uguale.') && change(() => { st.res = {}; st.post = {}; });
   $('#formato').onchange = e => {
-    if (sure('Cambiare formato azzera i risultati. Procedo?')) change(() => { st.fmt = e.target.value; st.res = {}; });
+    if (sure('Cambiare formato azzera i risultati. Procedo?')) change(() => { st.fmt = e.target.value; st.res = {}; st.post = {}; });
     else e.target.value = st.fmt;
   };
   $('#minuti').onchange = e => { const v = Math.round(+e.target.value); if (v >= 1 && v <= 30) change(() => st.min = v); };
@@ -322,6 +326,7 @@
   function card(m, M, next) {
     const d = el('div', 'm' + (m === next ? ' now' : ''));
     d.append(el('span', 'no', '#' + m.no));
+    if (st.post[m.id] != null && m.win == null) d.append(el('span', 'rim', 'Rimandato'));
     for (const [pid, src] of [[m.A, m.a], [m.B, m.b]]) {
       const b = el('button', pid == null ? 'tbd' : m.win == null ? '' : m.win === pid ? 'win' : 'lose', pid == null ? label(src, M) : name(pid));
       if (m.win === pid && pid != null) b.prepend(el('span', 'sc', `2-${m.score}`));
@@ -348,7 +353,13 @@
     $('#durata').textContent = `${M.length} incontri · nessun bye · ${left ? `ne mancano ${left}, circa ${mins(left * st.min)}` : 'finito'}`;
 
     // prossimo incontro: il primo pronto in ordine di gioco
-    const next = play.find(m => m.A != null && m.B != null && m.win == null);
+    // coda: gli incontri pronti in ordine di gioco; un incontro rimandato va in fondo alla sua fase (gironi o fase finale) e si recupera lì
+    const eff = m => st.post[m.id] != null ? (m.br === 'G' ? 1e5 : 2e6) + st.post[m.id] : m.ord;
+    const queue = play.filter(m => m.A != null && m.B != null && m.win == null).sort((a, b) => eff(a) - eff(b));
+    const [next, then] = queue;
+    $('#poi').textContent = then ? `Poi: ${name(then.A)} vs ${name(then.B)}` : '';
+    $('#rimanda').hidden = !then;
+    $('#rimanda').onclick = () => change(() => st.post[next.id] = ++st.postN);
     $('#next').hidden = !next; $('#hint').hidden = !next || !admin;
     $('#champ').hidden = champ == null;
     $('#ora-t').textContent = next ? `Ora tocca a · #${next.no} ${next.title}` : champ != null ? 'Torneo finito' : '';
