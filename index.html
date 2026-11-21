@@ -153,6 +153,7 @@
   .lista strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 18px/1.1 var(--hud); letter-spacing: .03em; text-transform: uppercase; }
   .lista small { font-size: 13px; color: var(--muted); }
   .oops { margin: 0; text-align: center; font: 700 15px/1.2 var(--hud); letter-spacing: .06em; text-transform: uppercase; color: #ff4a2a; }
+  #tv { display: block; width: 100%; height: 600px; margin-top: 10px; border: 0; color-scheme: dark; }
   .cta:disabled { filter: saturate(.5) brightness(.8); cursor: progress; }
 
   /* comparsa allo scroll: zero JS, solo dove il browser la supporta; usa translate per non litigare con transform */
@@ -184,7 +185,7 @@
 
 <main class="app">
   <header class="hero">
-    <span class="pill hud"><i></i>Iscrizioni aperte · <span id="quando">sabato</span></span>
+    <span class="pill hud" id="stato"><i></i>Iscrizioni aperte · <span id="quando">sabato</span></span>
     <h1><img src="img/logo.webp" width="800" height="193" alt="Mortal Kombat 11" fetchpriority="high"></h1>
     <p class="eyebrow hud">Il torneo</p>
     <div class="meta">
@@ -192,6 +193,13 @@
       <a href="torneo.html">Tabellone live</a>
     </div>
   </header>
+
+  <!-- tabellone live: torneo.html in sola lettura, compare quando la regia preme «Inizia torneo» -->
+  <section class="q" id="torneo" hidden>
+    <span class="kick hud">In diretta</span>
+    <h2>Il torneo</h2>
+    <iframe id="tv" src="torneo.html" title="Tabellone live del torneo"></iframe>
+  </section>
 
   <form id="iscrizione" novalidate>
     <section class="q field">
@@ -451,6 +459,16 @@
     form.scrollIntoView();
     form.nome.focus({ preventScroll: true });
   };
+
+  // il tabellone dice altezza e se la diretta è accesa; i messaggi valgono solo se arrivano dal nostro iframe
+  addEventListener('message', e => {
+    const t = e.source === $('#tv').contentWindow && e.data && e.data.torneo;
+    if (!t) return;
+    $('#tv').style.height = t.h + 'px';
+    if (t.live === !$('#torneo').hidden) return;
+    $('#torneo').hidden = !t.live;
+    $('#stato').innerHTML = t.live ? '<i></i>Torneo in corso' : '<i></i>Iscrizioni aperte';
+  });
 
   paint(current());
   show(form.main.value);

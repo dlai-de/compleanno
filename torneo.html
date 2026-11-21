@@ -117,6 +117,12 @@
   .live i { width: 8px; height: 8px; border-radius: 50%; background: #3bff7a; box-shadow: 0 0 8px #3bff7a; animation: pulse 1.4s ease-in-out infinite; }
   .live.off i { background: #ff3b1f; box-shadow: 0 0 8px #ff3b1f; }
   @keyframes pulse { 50% { opacity: .35; } }
+  #diretta.on { background: var(--card); box-shadow: none; border: 1px solid #3bff7a; color: #3bff7a; }
+  .wait { margin-top: 40px; text-align: center; font-size: 20px; color: var(--muted); }
+  /* dentro la pagina d'iscrizione: niente titolo né sfondo, l'altezza la decide il genitore */
+  html:has(body.embed), body.embed { background: transparent; min-height: 0; }
+  .embed .app { padding: 0; }
+  .embed h1 { display: none; }
   .oops { margin: 14px 0 0; font: 700 15px/1.2 var(--hud); letter-spacing: .06em; text-transform: uppercase; color: #ff4a2a; }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -134,11 +140,13 @@
     <div class="ctrl admin">
       <button type="button" class="cta" id="dado"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.8"/><circle cx="16" cy="8" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="8" cy="16" r="1.8"/><circle cx="16" cy="16" r="1.8"/></g></svg>Rifai sorteggio</button>
       <button type="button" class="ghost" id="azzera">Azzera risultati</button>
+      <button type="button" class="cta" id="diretta"></button>
     </div>
   </header>
 
   <p class="oops" id="oops" role="alert" hidden></p>
-  <div class="warn admin" id="warn" hidden><span class="hud">I giocatori sono cambiati: il sorteggio è quello vecchio</span><button type="button" class="cta" id="dado2">Rifai sorteggio</button></div>
+  <div class="warn admin" id="warn" hidden><span class="hud" id="warn-t"></span><span class="ctrl"><button type="button" class="cta" id="inserisci">Inserisci in corsa</button><button type="button" class="ghost" id="dado2">Rifai sorteggio</button></span></div>
+  <p class="wait hud" id="attesa" hidden>Il torneo non è ancora iniziato</p>
 
   <section class="set admin">
     <label><span class="hud">Formato</span><select class="inp" id="formato"></select></label>
@@ -187,12 +195,14 @@
   const autoFmt = n => { let G = 1; while (G * 6 <= n && G < 8) G *= 2; return { G, q: n === 2 ? 1 : 2 }; };
 
   // order: id dei giocatori, i più forti per primi. Ogni lato di un incontro: un giocatore (id), un piazzamento nel girone (g, pos) o il vincente di un incontro (w)
-  function build(order, G, q) {
+  // late: ritardatari [{ id, at }] entrati a torneo iniziato; at = da quale incontro del calendario erano arrivati
+  function build(order, G, q, late = []) {
     const Q = G * q, groups = Array.from({ length: G }, () => []);
     // a serpentina: le teste di serie finiscono in gironi diversi
     order.forEach((id, i) => { const r = i % (2 * G); groups[r < G ? r : 2 * G - 1 - r].push(id); });
 
-    const M = [], add = m => M.push({ id: M.length, ...m }) - 1;
+    // id stabili (i risultati sono legati all'id), ord = ordine di gioco
+    const M = [], add = m => M.push({ id: M.length, ord: M.length, ...m }) - 1;
     // calendario col metodo del cerchio, turni alternati tra gironi: chi ha appena giocato riposa
     const rounds = groups.map(g => {
       const p = g.length % 2 ? [...g, null] : [...g], R = [];
@@ -204,16 +214,24 @@
     });
     for (let r = 0; r < Math.max(...rounds.map(R => R.length)); r++)
       rounds.forEach((R, g) => (R[r] || []).forEach(([x, y]) => add({ br: 'G', grp: g, title: `Girone ${LET[g]}`, a: { id: x }, b: { id: y } })));
-    if (Q < 2) return { M, groups, G, q, Q, final: null };
+    // ritardatari: entrano nel girone più piccolo e sfidano tutti quelli del girone; i loro incontri vengono dopo quelli già esistenti
+    // (gli id vecchi non cambiano, quindi i risultati restano) e si alternano col calendario da dove era arrivato il torneo
+    for (const { id, at } of late) {
+      const g = groups.reduce((b, x, i) => x.length < groups[b].length ? i : b, 0);
+      groups[g].forEach((x, k) => add({ br: 'G', grp: g, title: `Girone ${LET[g]}`, a: { id: x }, b: { id }, ord: at + 2 * k - .5 }));
+      groups[g].push(id);
+    }
+    const out = final => ({ M, play: [...M].sort((a, b) => a.ord - b.ord || a.id - b.id), groups, G, q, Q, final });
+    if (Q < 2) return out(null);
 
     // fase finale a tabellone standard: chi arriva primo pesca chi arriva ultimo tra i qualificati, mai dello stesso girone al primo turno se si può
     const k = Math.log2(Q);
     let seeds = [1]; while (seeds.length < Q) { const L = seeds.length * 2 + 1; seeds = seeds.flatMap(x => [x, L - x]); }
     // testa di serie s → (girone, posizione): prima tutte le prime, poi tutte le seconde a gironi incrociati, ecc.
     const slot = s => { const pos = Math.floor((s - 1) / G), i = (s - 1) % G; return { g: pos % 2 && G > 1 ? (G - 1 - i) ^ 1 : i, pos }; };
-    let prev = Array.from({ length: Q / 2 }, (_, i) => add({ br: 'K', col: 0, title: KO[k - 1], a: slot(seeds[2 * i]), b: slot(seeds[2 * i + 1]) }));
-    for (let r = 1; r < k; r++) prev = Array.from({ length: prev.length / 2 }, (_, i) => add({ br: 'K', col: r, title: KO[k - 1 - r], a: { w: prev[2 * i] }, b: { w: prev[2 * i + 1] } }));
-    return { M, groups, G, q, Q, final: prev[0] };
+    let prev = Array.from({ length: Q / 2 }, (_, i) => add({ br: 'K', col: 0, ord: 1e6 + M.length, title: KO[k - 1], a: slot(seeds[2 * i]), b: slot(seeds[2 * i + 1]) }));
+    for (let r = 1; r < k; r++) prev = Array.from({ length: prev.length / 2 }, (_, i) => add({ br: 'K', col: r, ord: 1e6 + M.length, title: KO[k - 1 - r], a: { w: prev[2 * i] }, b: { w: prev[2 * i + 1] } }));
+    return out(prev[0]);
   }
 
   // res[id] = [vincitore, round vinti dal perdente (0 o 1)]; i risultati che non valgono più (è cambiato qualcosa prima) si cancellano da soli
@@ -229,7 +247,7 @@
     M.filter(m => m.br === 'G').forEach(play);
     groups.forEach((g, i) => tab[i] = standings(M, g, i, order));
     M.filter(m => m.br === 'K').forEach(play);
-    M.forEach((m, i) => m.no = i + 1);
+    B.play.forEach((m, i) => m.no = i + 1);
     const champ = B.final != null ? M[B.final].win : tab[0].done ? tab[0][0].id : null;
     return { tab, champ };
   }
@@ -247,7 +265,7 @@
   // --- fine motore
 
   // stato condiviso, salvato su Supabase (tabella regia)
-  const blank = () => ({ out: [], ids: [], order: [], res: {}, fmt: 'auto', min: 4 });
+  const blank = () => ({ out: [], ids: [], order: [], late: [], res: {}, fmt: 'auto', min: 4, live: false });
   let st = blank(), players = [], admin = false, seen = null, ver = 0, saving = 0, fmtKey = '';
 
   const say = msg => { $('#oops').textContent = msg || ''; $('#oops').hidden = !msg; };
@@ -279,7 +297,7 @@
     const ps = present();
     for (let i = ps.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [ps[i], ps[j]] = [ps[j], ps[i]]; }
     st.order = ps.sort((a, b) => TIER[a.livello] - TIER[b.livello]).map(p => p.id);
-    st.ids = ids(); st.res = {};
+    st.ids = ids(); st.res = {}; st.late = [];
   }
   function draw() {
     change(shuffle);
@@ -317,18 +335,20 @@
 
   function render() {
     if (admin) renderAdmin();
-    $('#warn').hidden = !admin || !changed();
-    const n = st.order.length;
-    $('#ora').hidden = $('#gironi-s').hidden = $('#ko-s').hidden = n < 2;
-    if (n < 2) { $('#fmt').textContent = admin ? 'Servono almeno 2 giocatori' : 'Il sorteggio non è ancora fatto'; $('#durata').textContent = ''; return; }
+    const n = st.order.length, show = n >= 2 && (admin || st.live);
+    $('#ora').hidden = $('#gironi-s').hidden = $('#ko-s').hidden = !show;
+    $('#attesa').hidden = show || admin;
+    if (!show) { $('#fmt').textContent = admin ? 'Servono almeno 2 giocatori' : ''; $('#durata').textContent = ''; return tell(); }
 
-    const f = fmtOf(n), B = build(st.order, f.G, f.q), { M, groups, G, Q } = B, { tab, champ } = resolve(B, st.order, st.res);
+    // il formato resta quello del sorteggio anche se entra qualcuno in corsa
+    const f = fmtOf(n), B = build(st.order, f.G, f.q, st.late), { M, play, groups, G, Q } = B, { tab, champ } = resolve(B, st.order, st.res);
     const left = M.filter(m => m.win == null).length;
-    $('#fmt').textContent = `${fmtText(f, n)} · ${n} giocatori`;
+    if (admin) renderWarn(M);
+    $('#fmt').textContent = `${fmtText(f, n)} · ${n + st.late.length} giocatori`;
     $('#durata').textContent = `${M.length} incontri · nessun bye · ${left ? `ne mancano ${left}, circa ${mins(left * st.min)}` : 'finito'}`;
 
     // prossimo incontro: il primo pronto in ordine di gioco
-    const next = M.find(m => m.A != null && m.B != null && m.win == null);
+    const next = play.find(m => m.A != null && m.B != null && m.win == null);
     $('#next').hidden = !next; $('#hint').hidden = !next || !admin;
     $('#champ').hidden = champ == null;
     $('#ora-t').textContent = next ? `Ora tocca a · #${next.no} ${next.title}` : champ != null ? 'Torneo finito' : '';
@@ -344,7 +364,7 @@
         for (const v of [i + 1, name(r.id), r.v, r.p, (r.rd > 0 ? '+' : '') + r.rd]) tr.append(el('td', '', v));
         t.append(tr);
       });
-      for (const m of M) if (m.br === 'G' && m.grp === gi) list.append(card(m, M, next));
+      for (const m of play) if (m.br === 'G' && m.grp === gi) list.append(card(m, M, next));
       box.append(el('h3', '', G === 1 ? 'Classifica' : `Girone ${LET[gi]}`), t, list);
       return box;
     }));
@@ -358,7 +378,33 @@
       for (const m of ms) list.append(card(m, M, next));
       return col;
     }));
+    tell();
   }
+
+  // pagina d'iscrizione: torneo.html ci sta dentro in un iframe e le dice altezza e se la diretta è accesa
+  const EMBED = window.parent !== window;
+  const tell = () => EMBED && parent.postMessage({ torneo: { live: !!st.live && st.order.length >= 2, h: $('.app').offsetHeight } }, '/');
+
+  // ritardatari: si possono inserire finché non è iniziata la fase finale e nessuno è stato tolto
+  let lateOk = false;
+  function renderWarn(M) {
+    const added = ids().filter(id => !st.ids.includes(id)), removed = st.ids.filter(id => !ids().includes(id));
+    lateOk = added.length > 0 && !removed.length && !M.some(m => m.br === 'K' && m.win != null);
+    $('#warn').hidden = !changed();
+    $('#inserisci').hidden = !lateOk;
+    $('#warn-t').textContent = [added.length && `Nuovi: ${added.map(name).join(', ')}`, removed.length && `Tolti: ${removed.map(name).join(', ')}`].filter(Boolean).join(' · ')
+      + (lateOk ? '. Inseriscili in corsa (i risultati restano) o rifai il sorteggio' : '. Per cambiare i giocatori a torneo iniziato va rifatto il sorteggio');
+  }
+  function lateJoin() {
+    const f = fmtOf(st.order.length), B = build(st.order, f.G, f.q, st.late);
+    resolve(B, st.order, st.res);
+    // da dove è arrivato il calendario: i suoi incontri si alternano con quelli ancora da giocare
+    const reg = B.play.filter(m => m.br === 'G' && Number.isInteger(m.ord)), i = reg.findIndex(m => m.win == null);
+    const at = i < 0 ? reg.length : reg[i].ord;
+    change(() => { st.late.push(...ids().filter(id => !st.ids.includes(id)).map(id => ({ id, at }))); st.ids = ids(); });
+  }
+  $('#inserisci').onclick = () => lateJoin();
+  $('#diretta').onclick = () => change(() => st.live = !st.live);
 
   function renderAdmin() {
     const n = st.order.length, sel = $('#formato');
@@ -372,6 +418,8 @@
     }
     if (document.activeElement !== $('#minuti')) $('#minuti').value = st.min;
     $('#azzera').disabled = !played();
+    $('#diretta').textContent = st.live ? 'In diretta · nascondi' : 'Inizia torneo';
+    $('#diretta').classList.toggle('on', !!st.live);
 
     $('#players').replaceChildren(...players.map(p => {
       const li = el('li'), l = el('label'), cb = el('input'), d = el('div');
@@ -415,7 +463,10 @@
     if (!ok) return say('Non è partita: controlla la connessione e riprova');
     say(); f.reset(); f.nome.focus();
     await poll();
-    if (changed() && played() && confirm('Rifare subito il sorteggio con il nuovo giocatore? I risultati segnati si azzerano.')) draw();
+    if (changed() && played()) {
+      if (lateOk && confirm('Torneo già iniziato: inserisco il nuovo giocatore in corsa? Entra nel girone più piccolo, gioca contro tutti, i risultati restano.')) lateJoin();
+      else if (confirm('Rifare il sorteggio da capo con il nuovo giocatore? I risultati segnati si azzerano.')) draw();
+    }
   };
 
   // legge giocatori e stato; se nel frattempo la regia ha cambiato qualcosa in locale, la lettura vecchia si scarta
@@ -444,6 +495,8 @@
     if (TOKEN) try { admin = await (await rpc('regia_entra', { token: TOKEN })).json() === true; } catch {}
     if (TOKEN && !admin) say('Link di regia non valido: vedi il tabellone in sola lettura');
     document.body.classList.toggle('is-admin', admin);
+    document.body.classList.toggle('embed', EMBED);
+    new ResizeObserver(tell).observe($('.app'));
     await poll();
     setInterval(poll, POLL_MS);
   })();
