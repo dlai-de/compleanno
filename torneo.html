@@ -502,6 +502,20 @@
     if (ok && admin && v === ver && changed() && !played()) draw(); else render();
   }
 
+  // GitHub Pages fa tenere ai browser la pagina vecchia fino a 10 minuti: se è uscita una versione nuova (stile o codice diversi) ci si ricarica da soli
+  // solo il nostro CSS e il nostro script: quello che aggiungono le estensioni del browser non conta
+  const code = d => d.querySelector('style')?.textContent + [...d.scripts].find(x => x.textContent.includes('const SB_URL'))?.textContent;
+  async function fresh() {
+    try {
+      const t = await (await fetch(`${location.pathname}?v=${Date.now()}`, { cache: 'no-store' })).text();
+      if (code(new DOMParser().parseFromString(t, 'text/html')) === code(document)) return;
+      // al massimo una ricarica ogni 2 minuti, così un errore non diventa un ciclo infinito
+      if (Date.now() - (+sessionStorage.getItem('ricarica') || 0) < 120000) return;
+      sessionStorage.setItem('ricarica', Date.now());
+      location.replace(`${location.pathname}?v=${Date.now()}${location.hash}`);
+    } catch {}
+  }
+
   (async () => {
     if (TOKEN) try { admin = await (await rpc('regia_entra', { token: TOKEN })).json() === true; } catch {}
     if (TOKEN && !admin) say('Link di regia non valido: vedi il tabellone in sola lettura');
@@ -510,6 +524,7 @@
     new ResizeObserver(tell).observe($('.app'));
     await poll();
     setInterval(poll, POLL_MS);
+    setInterval(fresh, 30000);
   })();
 </script>
 </body>
