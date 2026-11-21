@@ -74,6 +74,19 @@
   .m .win { background: linear-gradient(90deg, rgb(240 189 90 / .28), transparent); color: var(--gold); }
   .m .lose { opacity: .4; text-decoration: line-through; }
 
+  /* gironi */
+  .gironi { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .grp { padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgb(255 255 255 / .025); }
+  .grp h3 { margin: 0 0 8px; font: 700 13px/1 var(--hud); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .tab { width: 100%; margin-bottom: 12px; border-collapse: collapse; font: 700 17px/1 var(--hud); text-transform: uppercase; }
+  .tab th { padding: 0 6px 6px; font-size: 12px; letter-spacing: .1em; color: var(--muted); text-align: right; }
+  .tab td { padding: 7px 6px; border-top: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+  .tab td:nth-child(2) { width: 100%; text-align: left; }
+  .tab td:first-child { color: var(--muted); }
+  .tab .q td:nth-child(2) { color: var(--gold); }
+  .gms { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+  .sc { float: right; margin-right: -22px; font-size: 14px; }
+
   /* giocatori */
   .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
   .players label { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; }
@@ -103,16 +116,17 @@
     <button type="button" class="cta" id="dado"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8" cy="8" r="1.8"/><circle cx="16" cy="8" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="8" cy="16" r="1.8"/><circle cx="16" cy="16" r="1.8"/></g></svg>Rifai sorteggio</button>
   </header>
 
-  <div class="warn" id="warn" hidden><span class="hud">I giocatori sono cambiati: il tabellone è quello vecchio</span><button type="button" class="cta" id="dado2">Rifai sorteggio</button></div>
+  <div class="warn" id="warn" hidden><span class="hud">I giocatori sono cambiati: il sorteggio è quello vecchio</span><button type="button" class="cta" id="dado2">Rifai sorteggio</button></div>
 
   <section id="ora">
     <h2 id="ora-t"></h2>
     <div class="next" id="next"><button type="button" class="a"></button><span class="vs" aria-hidden="true">VS</span><button type="button" class="b"></button></div>
-    <p class="hint" id="hint">Tocca chi ha vinto</p>
+    <p class="hint" id="hint">Tocca chi ha vinto 2-0 · ritocca per il 2-1</p>
     <p class="champ" id="champ" hidden></p>
   </section>
 
-  <section id="tabelloni"></section>
+  <section id="gironi-s"><h2 id="gironi-t"></h2><div class="gironi" id="gironi"></div></section>
+  <section id="ko-s"><h2>Fase finale</h2><div class="bracket" id="ko"></div></section>
 
   <section>
     <h2>Giocatori <small id="quanti"></small></h2>
@@ -142,58 +156,69 @@
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch {} };
 
   // --- motore
-  const BYE = -1;
-  // ponytail: oltre 16 giocatori la doppia eliminazione supera le 2 ore con una console, si passa all'eliminazione diretta
-  const DOUBLE_MAX = 16;
+  // gironi all'italiana + eliminazione diretta: nessun bye, tutti giocano contro tutti nel proprio girone
+  const KO = ['Finale', 'Semifinali', 'Quarti', 'Ottavi'], LET = 'ABCDEFGH';
 
-  // tabellone come lista di incontri in ordine di gioco; ogni lato viene da una testa di serie (p) o dal vincente (w) / perdente (l) di un incontro precedente
-  function build(n) {
-    const double = n <= DOUBLE_MAX;
-    let k = 0; while ((1 << k) < n) k++;
-    const S = 1 << k;
-    // posizioni standard delle teste di serie: 1 e 2 si incontrano solo in finale, i bye vanno alle più alte
-    let seeds = [1]; while (seeds.length < S) { const L = seeds.length * 2 + 1; seeds = seeds.flatMap(x => [x, L - x]); }
-    const M = [], add = (br, col, title, a, b) => M.push({ id: M.length, br, col, title, a, b }) - 1;
-    const wTitle = r => r === k - 1 ? (double ? 'Finale vincenti' : 'Finale') : r === k - 2 ? 'Semifinali' : r === k - 3 ? 'Quarti' : `Turno ${r + 1}`;
-    const W = [];
-    const wRound = r => W[r] = Array.from({ length: S >> (r + 1) }, (_, i) => r === 0
-      ? add('W', 0, wTitle(0), { p: seeds[2 * i] - 1 }, { p: seeds[2 * i + 1] - 1 })
-      : add('W', r, wTitle(r), { w: W[r - 1][2 * i] }, { w: W[r - 1][2 * i + 1] }));
-    wRound(0);
-    if (!double) { for (let r = 1; r < k; r++) wRound(r); return { M, double, final: W[k - 1][0] }; }
+  // order: id dei giocatori, i più forti per primi. Ogni incontro: lati da un giocatore (id), da un piazzamento nel girone (g, pos) o dal vincente di un incontro (w)
+  function build(order) {
+    const n = order.length;
+    // più gironi possibile (1, 2, 4, 8) con almeno 3 giocatori: così tutti fanno almeno 2 incontri ma il torneo non si allunga
+    let G = 1; while (G * 2 * 3 <= n && G < 8) G *= 2;
+    const q = n === 2 ? 1 : 2, Q = G * q; // passano i primi 2 di ogni girone (in 2 si gioca una sfida secca)
+    const groups = Array.from({ length: G }, () => []);
+    // a serpentina: le teste di serie finiscono in gironi diversi
+    order.forEach((id, i) => { const r = i % (2 * G); groups[r < G ? r : 2 * G - 1 - r].push(id); });
 
-    // perdenti: un turno coi perdenti del 1° turno, poi alternati "arrivano i perdenti del turno r" e "si sfidano tra loro"
-    let prev = [], c = 0;
-    if (k >= 2) prev = Array.from({ length: S / 4 }, (_, i) => add('L', c, 'Perdenti 1', { l: W[0][2 * i] }, { l: W[0][2 * i + 1] }));
-    for (let r = 1; r < k; r++) {
-      wRound(r);
-      const los = r % 2 ? W[r].slice().reverse() : W[r]; // incrociati, così si evitano le rivincite immediate
-      c++; prev = prev.map((m, i) => add('L', c, `Perdenti ${c + 1}`, { w: m }, { l: los[i] }));
-      if (r < k - 1) { c++; prev = Array.from({ length: prev.length / 2 }, (_, i) => add('L', c, `Perdenti ${c + 1}`, { w: prev[2 * i] }, { w: prev[2 * i + 1] })); }
-    }
-    if (prev.length) M[prev[0]].title = 'Finale perdenti';
-    const gf = add('F', 0, 'Finalissima', { w: W[k - 1][0] }, prev.length ? { w: prev[0] } : { l: W[0][0] });
-    // se vince chi arriva dai perdenti, anche l'altro ha perso una volta: si gioca la bella
-    const gf2 = add('F', 1, 'Bella', { w: gf }, { l: gf });
-    M[gf2].reset = gf;
-    return { M, double, final: gf2 };
+    const M = [], add = m => M.push({ id: M.length, ...m }) - 1;
+    // calendario col metodo del cerchio, turni alternati tra gironi: chi ha appena giocato riposa
+    const rounds = groups.map(g => {
+      const p = g.length % 2 ? [...g, null] : [...g], R = [];
+      for (let r = 0; r < p.length - 1; r++) {
+        R.push(p.slice(0, p.length / 2).map((x, i) => [x, p[p.length - 1 - i]]).filter(([x, y]) => x != null && y != null));
+        p.splice(1, 0, p.pop());
+      }
+      return R;
+    });
+    for (let r = 0; r < Math.max(...rounds.map(R => R.length)); r++)
+      rounds.forEach((R, g) => (R[r] || []).forEach(([x, y]) => add({ br: 'G', grp: g, title: `Girone ${LET[g]}`, a: { id: x }, b: { id: y } })));
+    if (Q < 2) return { M, groups, G, Q, final: null };
+
+    // fase finale: le prime dei gironi contro le seconde di un altro girone; due dello stesso girone si possono ritrovare solo in finale
+    const k = Math.log2(Q);
+    let seeds = [1]; while (seeds.length < Q) { const L = seeds.length * 2 + 1; seeds = seeds.flatMap(x => [x, L - x]); }
+    const slot = s => s <= G ? { g: s - 1, pos: 0 } : { g: G === 1 ? 0 : (2 * G - s) ^ 1, pos: 1 };
+    let prev = Array.from({ length: Q / 2 }, (_, i) => add({ br: 'K', col: 0, title: KO[k - 1], a: slot(seeds[2 * i]), b: slot(seeds[2 * i + 1]) }));
+    for (let r = 1; r < k; r++) prev = Array.from({ length: prev.length / 2 }, (_, i) => add({ br: 'K', col: r, title: KO[k - 1 - r], a: { w: prev[2 * i] }, b: { w: prev[2 * i + 1] } }));
+    return { M, groups, G, Q, final: prev[0] };
   }
 
-  // calcola chi gioca dove; i risultati che non valgono più (perché è cambiato un incontro prima) si cancellano da soli
-  function resolve(M, order, res) {
-    const val = s => s.p != null ? (order[s.p] ?? BYE) : s.w != null ? M[s.w].win : M[s.l].lose;
-    for (const m of M) {
-      m.A = val(m.a); m.B = val(m.b); m.bye = m.skip = false; m.win = m.lose = null;
-      if (m.reset != null) {
-        const g = M[m.reset];
-        if (g.win == null || g.win === g.A) { m.skip = true; m.win = g.win; delete res[m.id]; continue; }
-      }
-      if (m.A === BYE || m.B === BYE) { m.bye = true; m.win = m.A === BYE ? m.B : m.A; m.lose = BYE; delete res[m.id]; continue; }
+  // res[id] = [vincitore, round vinti dal perdente (0 o 1)]; i risultati che non valgono più (è cambiato qualcosa prima) si cancellano da soli
+  function resolve(B, order, res) {
+    const { M, groups } = B, tab = [];
+    const val = s => s.id ?? (s.w != null ? M[s.w].win : tab[s.g].done ? tab[s.g][s.pos].id : null);
+    const play = m => {
+      m.A = val(m.a); m.B = val(m.b); m.win = m.lose = m.score = null;
       const r = res[m.id];
-      if (m.A != null && m.B != null && (r === m.A || r === m.B)) { m.win = r; m.lose = r === m.A ? m.B : m.A; }
+      if (m.A != null && m.B != null && Array.isArray(r) && (r[0] === m.A || r[0] === m.B)) { m.win = r[0]; m.lose = r[0] === m.A ? m.B : m.A; m.score = r[1]; }
       else delete res[m.id];
-    }
-    let no = 0; for (const m of M) if (!m.bye) m.no = ++no;
+    };
+    M.filter(m => m.br === 'G').forEach(play);
+    groups.forEach((g, i) => tab[i] = standings(M, g, i, order));
+    M.filter(m => m.br === 'K').forEach(play);
+    M.forEach((m, i) => m.no = i + 1);
+    const champ = B.final != null ? M[B.final].win : tab[0].done ? tab[0][0].id : null;
+    return { tab, champ };
+  }
+
+  function standings(M, g, gi, order) {
+    const ms = M.filter(m => m.br === 'G' && m.grp === gi);
+    const rows = g.map(id => ({ id, v: 0, p: 0, rd: 0 })), row = id => rows.find(r => r.id === id);
+    for (const m of ms) if (m.win != null) { const w = row(m.win), l = row(m.lose), d = 2 - m.score; w.v++; l.p++; w.rd += d; l.rd -= d; }
+    const h2h = (a, b) => { const m = ms.find(m => m.win != null && [a.id, b.id].includes(m.A) && [a.id, b.id].includes(m.B)); return m ? (m.win === a.id ? -1 : 1) : 0; };
+    // ponytail: spareggi = vittorie, differenza round, scontro diretto, poi ordine del sorteggio; a tre perfettamente pari decide il sorteggio
+    rows.sort((a, b) => b.v - a.v || b.rd - a.rd || h2h(a, b) || order.indexOf(a.id) - order.indexOf(b.id));
+    rows.done = ms.every(m => m.win != null);
+    return rows;
   }
   // --- fine motore
 
@@ -206,7 +231,7 @@
   function draw() {
     const ps = present();
     for (let i = ps.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [ps[i], ps[j]] = [ps[j], ps[i]]; }
-    // a fasce: casuale dentro ogni livello, i più forti fanno da teste di serie e non si incontrano al primo turno (lo promette la pagina d'iscrizione)
+    // a fasce: casuale dentro ogni livello, i più forti fanno da teste di serie in gironi diversi (lo promette la pagina d'iscrizione)
     st.order = ps.sort((a, b) => TIER[a.livello] - TIER[b.livello]).map(p => p.id);
     st.ids = ids(); st.res = {};
     for (const b of [$('#dado'), $('#dado2')]) { b.classList.remove('roll'); void b.offsetWidth; b.classList.add('roll'); }
@@ -215,62 +240,74 @@
   const redraw = () => (!played() || confirm('Rifare il sorteggio da capo? I risultati segnati si azzerano.')) && draw();
   $('#dado').onclick = $('#dado2').onclick = redraw;
 
-  const label = (s, M) => { const x = M[s.w ?? s.l]; return s.l != null ? `Perde #${x.no}` : x.bye ? label(x.A === BYE ? x.b : x.a, M) : `Vince #${x.no}`; };
-  const pick = (m, pid) => { if (st.res[m.id] === pid) delete st.res[m.id]; else st.res[m.id] = pid; render(); };
+  const label = (s, M) => s.w != null ? `Vince #${M[s.w].no}` : `${s.pos + 1}° girone ${LET[s.g]}`;
+  // tocco: vince 2-0 → ritocco: 2-1 → ritocco: annullato
+  const pick = (m, pid) => {
+    const r = st.res[m.id];
+    if (!r || r[0] !== pid) st.res[m.id] = [pid, 0]; else if (r[1] === 0) st.res[m.id] = [pid, 1]; else delete st.res[m.id];
+    render();
+  };
   const mins = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60 ? m % 60 + ' min' : ''}`;
+
+  function card(m, M, next) {
+    const d = el('div', 'm' + (m === next ? ' now' : ''));
+    d.append(el('span', 'no', '#' + m.no));
+    for (const [pid, src] of [[m.A, m.a], [m.B, m.b]]) {
+      const b = el('button', pid == null ? 'tbd' : m.win == null ? '' : m.win === pid ? 'win' : 'lose', pid == null ? label(src, M) : name(pid));
+      if (m.win === pid && pid != null) b.prepend(el('span', 'sc', `2-${m.score}`));
+      b.type = 'button';
+      b.disabled = m.A == null || m.B == null;
+      if (!b.disabled) b.onclick = () => pick(m, pid);
+      d.append(b);
+    }
+    return d;
+  }
 
   function render() {
     renderPlayers();
     $('#warn').hidden = !changed();
-    const n = st.order.length, box = $('#tabelloni');
-    box.replaceChildren();
-    $('#ora').hidden = n < 2;
+    const n = st.order.length;
+    $('#ora').hidden = $('#gironi-s').hidden = $('#ko-s').hidden = n < 2;
     if (n < 2) { $('#fmt').textContent = 'Servono almeno 2 giocatori'; $('#durata').textContent = ''; save(); return; }
 
-    const { M, double, final } = build(n);
-    resolve(M, st.order, st.res);
+    const B = build(st.order), { M, groups, G, Q } = B, { tab, champ } = resolve(B, st.order, st.res);
     save();
-    const real = M.filter(m => !m.bye && m.reset == null).length;
-    $('#fmt').textContent = `${double ? 'Doppia eliminazione · chi perde due volte è fuori' : 'Eliminazione diretta · chi perde è fuori'} · ${n} giocatori`;
-    $('#durata').textContent = `${real} incontri${double ? ' (+1 se serve la bella)' : ''} · circa ${mins(real * MIN_PER_MATCH)}`;
+    $('#fmt').textContent = (Q < 2 ? 'Sfida secca' : `${G === 1 ? 'Girone unico' : G + ' gironi'} · passano i primi 2 ${{ 2: 'in finale', 4: 'in semifinale', 8: 'ai quarti', 16: 'agli ottavi' }[Q]}`) + ` · ${n} giocatori`;
+    $('#durata').textContent = `${M.length} incontri · nessun bye · circa ${mins(M.length * MIN_PER_MATCH)}`;
 
     // prossimo incontro: il primo pronto in ordine di gioco
-    const next = M.find(m => !m.bye && !m.skip && m.A != null && m.B != null && m.win == null);
-    const champ = M[final].win;
+    const next = M.find(m => m.A != null && m.B != null && m.win == null);
     $('#next').hidden = $('#hint').hidden = !next;
     $('#champ').hidden = champ == null;
-    if (champ != null) { $('#ora-t').textContent = 'Torneo finito'; $('#champ').replaceChildren(el('small', '', 'Campione'), name(champ)); }
-    if (next) {
-      $('#ora-t').textContent = `Ora tocca a · #${next.no} ${next.title}`;
-      for (const [cls, pid] of [['.a', next.A], ['.b', next.B]]) { const b = $('#next ' + cls); b.textContent = name(pid); b.onclick = () => pick(next, pid); }
-    } else if (champ == null) $('#ora-t').textContent = '';
+    $('#ora-t').textContent = next ? `Ora tocca a · #${next.no} ${next.title}` : champ != null ? 'Torneo finito' : '';
+    if (champ != null) $('#champ').replaceChildren(el('small', '', 'Campione'), name(champ));
+    if (next) for (const [cls, pid] of [['.a', next.A], ['.b', next.B]]) { const b = $('#next ' + cls); b.textContent = name(pid); b.onclick = () => pick(next, pid); }
 
-    const sections = double ? [['W', 'Vincenti'], ['L', 'Perdenti'], ['F', 'Finale']] : [['W', 'Tabellone']];
-    for (const [br, title] of sections) {
-      const cols = [];
-      for (const m of M) if (m.br === br && !m.bye && !m.skip) (cols[m.col] ??= []).push(m);
-      if (!cols.length) continue;
-      const wrap = el('div', 'bracket');
-      cols.filter(Boolean).forEach((ms, i, all) => {
-        const col = el('div', 'col'), list = el('div', 'ms');
-        // i perdenti si numerano dalle colonne visibili: quelle fatte solo di bye non compaiono
-        col.append(el('h3', '', br === 'L' && i < all.length - 1 ? `Perdenti ${i + 1}` : ms[0].title), list);
-        for (const m of ms) {
-          const d = el('div', 'm' + (m === next ? ' now' : ''));
-          d.append(el('span', 'no', '#' + m.no));
-          for (const [pid, src] of [[m.A, m.a], [m.B, m.b]]) {
-            const b = el('button', pid == null ? 'tbd' : m.win == null ? '' : m.win === pid ? 'win' : 'lose', pid == null ? label(src, M) : name(pid));
-            b.type = 'button';
-            b.disabled = m.A == null || m.B == null;
-            if (!b.disabled) b.onclick = () => pick(m, pid);
-            d.append(b);
-          }
-          list.append(d);
-        }
-        wrap.append(col);
+    // gironi: classifica + incontri
+    $('#gironi-t').textContent = G === 1 ? 'Girone' : 'Gironi';
+    $('#gironi').replaceChildren(...groups.map((g, gi) => {
+      const box = el('div', 'grp'), t = el('table', 'tab'), list = el('div', 'gms');
+      t.innerHTML = '<tr><th></th><th></th><th>V</th><th>P</th><th>±R</th></tr>';
+      tab[gi].forEach((r, i) => {
+        const tr = el('tr', i < Q / G ? 'q' : '');
+        for (const v of [i + 1, name(r.id), r.v, r.p, (r.rd > 0 ? '+' : '') + r.rd]) tr.append(el('td', '', v));
+        t.append(tr);
       });
-      box.append(el('h2', '', title), wrap);
-    }
+      for (const m of M) if (m.br === 'G' && m.grp === gi) list.append(card(m, M, next));
+      box.append(el('h3', '', G === 1 ? 'Classifica' : `Girone ${LET[gi]}`), t, list);
+      return box;
+    }));
+
+    // fase finale
+    $('#ko-s').hidden = Q < 2;
+    const cols = [];
+    for (const m of M) if (m.br === 'K') (cols[m.col] ??= []).push(m);
+    $('#ko').replaceChildren(...cols.map(ms => {
+      const col = el('div', 'col'), list = el('div', 'ms');
+      col.append(el('h3', '', ms[0].title), list);
+      for (const m of ms) list.append(card(m, M, next));
+      return col;
+    }));
   }
 
   function renderPlayers() {
@@ -300,7 +337,7 @@
     if (!ok) { $('#oops').hidden = false; return; }
     f.reset(); f.nome.focus();
     await load();
-    if (changed()) redraw() || render();
+    if (changed() && !redraw()) render();
   };
 
   async function load() {
